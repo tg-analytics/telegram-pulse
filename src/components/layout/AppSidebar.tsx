@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useSidebarContext } from "./SidebarContext";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/" },
@@ -35,8 +35,7 @@ const bottomNavItems = [
 ];
 
 export function AppSidebar() {
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const { collapsed, setCollapsed, mobileOpen, setMobileOpen } = useSidebarContext();
   const location = useLocation();
 
   const isActive = (path: string) => location.pathname === path;
@@ -98,7 +97,7 @@ export function AppSidebar() {
         initial={false}
         animate={{ width: collapsed ? 72 : 256 }}
         className={cn(
-          "fixed lg:relative h-screen bg-sidebar border-r border-sidebar-border flex flex-col z-50 transition-transform duration-300",
+          "fixed top-0 left-0 h-screen bg-sidebar border-r border-sidebar-border flex flex-col z-50 transition-transform duration-300",
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
