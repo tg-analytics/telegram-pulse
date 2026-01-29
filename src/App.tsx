@@ -10,6 +10,8 @@ import AdsPage from "./pages/AdsPage";
 import RankingsPage from "./pages/RankingsPage";
 import SpyPage from "./pages/SpyPage";
 import AccountPage from "./pages/AccountPage";
+import MiniAppsPage from "./pages/MiniAppsPage";
+import AdvertisersPage from "./pages/AdvertisersPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +30,8 @@ const App = () => (
           <Route path="/rankings" element={<RankingsPage />} />
           <Route path="/spy" element={<SpyPage />} />
           <Route path="/account" element={<AccountPage />} />
+          <Route path="/mini-apps" element={<MiniAppsPage />} />
+          <Route path="/advertisers" element={<AdvertisersPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
