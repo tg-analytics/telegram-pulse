@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSidebarContext } from "./SidebarContext";
 
 const navItems = [
@@ -40,35 +41,50 @@ export function AppSidebar() {
 
   const isActive = (path: string) => location.pathname === path;
 
-  const NavItem = ({ item }: { item: typeof navItems[0] }) => (
-    <Link
-      to={item.path}
-      onClick={() => setMobileOpen(false)}
-      className={cn(
-        "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
-        isActive(item.path)
-          ? "bg-sidebar-primary text-sidebar-primary-foreground"
-          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-      )}
-    >
-      <item.icon className={cn("w-5 h-5 flex-shrink-0", collapsed && !mobileOpen && "mx-auto")} />
-      <AnimatePresence>
-        {(!collapsed || mobileOpen) && (
-          <motion.span
-            initial={{ opacity: 0, width: 0 }}
-            animate={{ opacity: 1, width: "auto" }}
-            exit={{ opacity: 0, width: 0 }}
-            className="text-sm font-medium whitespace-nowrap overflow-hidden"
-          >
-            {item.label}
-          </motion.span>
+  const showTooltip = collapsed && !mobileOpen;
+
+  const NavItem = ({ item }: { item: typeof navItems[0] }) => {
+    const link = (
+      <Link
+        to={item.path}
+        onClick={() => setMobileOpen(false)}
+        className={cn(
+          "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
+          isActive(item.path)
+            ? "bg-sidebar-primary text-sidebar-primary-foreground"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         )}
-      </AnimatePresence>
-    </Link>
-  );
+      >
+        <item.icon className={cn("w-5 h-5 flex-shrink-0", showTooltip && "mx-auto")} />
+        <AnimatePresence>
+          {(!collapsed || mobileOpen) && (
+            <motion.span
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              className="text-sm font-medium whitespace-nowrap overflow-hidden"
+            >
+              {item.label}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </Link>
+    );
+
+    if (showTooltip) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>{link}</TooltipTrigger>
+          <TooltipContent side="right">{item.label}</TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return link;
+  };
 
   return (
-    <>
+    <TooltipProvider delayDuration={0}>
       {/* Mobile Menu Button */}
       <Button
         variant="ghost"
@@ -146,6 +162,6 @@ export function AppSidebar() {
           )}
         </button>
       </motion.aside>
-    </>
+    </TooltipProvider>
   );
 }
