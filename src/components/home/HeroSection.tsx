@@ -1,8 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, TrendingUp, Users, Megaphone } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { ArrowRight, TrendingUp, Users, Megaphone, Search, BarChart3, Eye, Target } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const stats = [
@@ -18,8 +16,18 @@ const placeholders = [
   "Optimize your advertising",
 ];
 
+const quickActions = [
+  { icon: Search, label: "Discover" },
+  { icon: BarChart3, label: "Analytics" },
+  { icon: Eye, label: "Spy" },
+  { icon: Target, label: "Ads" },
+];
+
 export function HeroSection() {
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [inputValue, setInputValue] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -27,6 +35,8 @@ export function HeroSection() {
     }, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  const showPlaceholder = !inputValue && !isFocused;
 
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-primary/10 py-16 lg:py-24">
@@ -68,31 +78,71 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="flex flex-col sm:flex-row gap-3 max-w-xl mx-auto mb-8"
+            className="max-w-2xl mx-auto mb-8"
           >
-            <div className="relative flex-1">
-              <Textarea
-                className="min-h-[56px] h-14 resize-none text-base bg-card shadow-card py-4 px-5"
-              />
-              <div className="absolute inset-0 flex items-center px-5 pointer-events-none">
-                <AnimatePresence mode="wait">
-                  <motion.span
-                    key={placeholderIndex}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.4 }}
-                    className="text-muted-foreground text-base"
-                  >
-                    {placeholders[placeholderIndex]}
-                  </motion.span>
-                </AnimatePresence>
+            <div
+              className="relative rounded-2xl border border-border bg-card shadow-lg cursor-text"
+              onClick={() => textareaRef.current?.focus()}
+            >
+              {/* Textarea area */}
+              <div className="relative min-h-[100px] p-5 pb-12">
+                <textarea
+                  ref={textareaRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={() => setIsFocused(false)}
+                  className="w-full bg-transparent text-foreground text-base resize-none outline-none placeholder:text-transparent"
+                  rows={2}
+                />
+                {/* Animated placeholder overlay */}
+                {showPlaceholder && (
+                  <div className="absolute top-5 left-5 pointer-events-none">
+                    <AnimatePresence mode="wait">
+                      <motion.span
+                        key={placeholderIndex}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.4 }}
+                        className="text-muted-foreground text-base"
+                      >
+                        {placeholders[placeholderIndex]}
+                      </motion.span>
+                    </AnimatePresence>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom toolbar */}
+              <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-4 py-3 border-t border-border/50">
+                <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                  <Search className="w-4 h-4" />
+                </button>
+                <button className="h-8 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-1.5">
+                  Find
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
-            <Button size="lg" className="h-14 px-6 gradient-hero">
-              Find Channels
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+
+            {/* Quick action chips */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="flex flex-wrap justify-center gap-2 mt-4"
+            >
+              {quickActions.map((action) => (
+                <button
+                  key={action.label}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card text-sm text-muted-foreground hover:text-foreground hover:border-primary/30 hover:shadow-sm transition-all"
+                >
+                  <action.icon className="w-4 h-4" />
+                  {action.label}
+                </button>
+              ))}
+            </motion.div>
           </motion.div>
 
           {/* CTA Buttons */}
@@ -103,14 +153,14 @@ export function HeroSection() {
             className="flex flex-wrap justify-center gap-4 mb-12"
           >
             <Link to="/catalog">
-              <Button variant="outline" size="lg">
+              <button className="h-11 px-8 rounded-md border border-input bg-background text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors">
                 Explore Catalog
-              </Button>
+              </button>
             </Link>
             <Link to="/ads">
-              <Button variant="outline" size="lg">
+              <button className="h-11 px-8 rounded-md border border-input bg-background text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors">
                 Telegram Ads Library
-              </Button>
+              </button>
             </Link>
           </motion.div>
         </motion.div>
