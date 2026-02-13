@@ -1,7 +1,8 @@
-import { motion } from "framer-motion";
-import { Search, ArrowRight, TrendingUp, Users, Megaphone } from "lucide-react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowRight, TrendingUp, Users, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Link } from "react-router-dom";
 
 const stats = [
@@ -10,7 +11,23 @@ const stats = [
   { icon: Megaphone, value: "88M+", label: "Ad Creatives" },
 ];
 
+const placeholders = [
+  "Discover channels",
+  "Analyze growth",
+  "Track competitors",
+  "Optimize your advertising",
+];
+
 export function HeroSection() {
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % placeholders.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-primary/10 py-16 lg:py-24">
       {/* Background decoration */}
@@ -46,7 +63,7 @@ export function HeroSection() {
             advertising with the most comprehensive Telegram analytics platform.
           </p>
 
-          {/* Search Bar */}
+          {/* Composer Prompt */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -54,14 +71,25 @@ export function HeroSection() {
             className="flex flex-col sm:flex-row gap-3 max-w-xl mx-auto mb-8"
           >
             <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search channels by name or link..."
-                className="pl-12 h-12 text-base bg-card shadow-card"
+              <Textarea
+                className="min-h-[56px] h-14 resize-none text-base bg-card shadow-card py-4 px-5"
               />
+              <div className="absolute inset-0 flex items-center px-5 pointer-events-none">
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={placeholderIndex}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.4 }}
+                    className="text-muted-foreground text-base"
+                  >
+                    {placeholders[placeholderIndex]}
+                  </motion.span>
+                </AnimatePresence>
+              </div>
             </div>
-            <Button size="lg" className="h-12 px-6 gradient-hero">
+            <Button size="lg" className="h-14 px-6 gradient-hero">
               Find Channels
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
