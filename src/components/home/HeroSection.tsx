@@ -119,9 +119,11 @@ export function HeroSection() {
                 <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
                   <Search className="w-4 h-4" />
                 </button>
-                <button className="h-8 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-1.5">
-                  Find
-                  <ArrowRight className="w-3.5 h-3.5" />
+                <button
+                  disabled={!inputValue.trim()}
+                  className="h-8 w-8 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
