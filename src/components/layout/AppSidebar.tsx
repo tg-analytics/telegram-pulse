@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Home,
@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSidebarContext } from "./SidebarContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/" },
@@ -38,16 +39,28 @@ const bottomNavItems = [
 export function AppSidebar() {
   const { collapsed, setCollapsed, mobileOpen, setMobileOpen } = useSidebarContext();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { isLoggedIn, setShowLoginDialog } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
 
   const showTooltip = collapsed && !mobileOpen;
 
+  const handleNavClick = (e: React.MouseEvent, path: string) => {
+    if (path !== "/" && !isLoggedIn) {
+      e.preventDefault();
+      setShowLoginDialog(true);
+      setMobileOpen(false);
+      return;
+    }
+    setMobileOpen(false);
+  };
+
   const NavItem = ({ item }: { item: typeof navItems[0] }) => {
     const link = (
       <Link
         to={item.path}
-        onClick={() => setMobileOpen(false)}
+        onClick={(e) => handleNavClick(e, item.path)}
         className={cn(
           "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
           isActive(item.path)
