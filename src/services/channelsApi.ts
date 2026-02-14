@@ -129,6 +129,61 @@ export interface ChannelOverviewResponse {
   meta: Record<string, unknown>;
 }
 
+export interface RankingChannel {
+  rank: number;
+  channel_id: string;
+  name: string;
+  username: string;
+  subscribers: number;
+  growth_7d: number;
+  engagement_rate: number;
+  context_type: "country" | "category";
+  context_label: string;
+  trend_label: string;
+  trend_value: number;
+}
+
+export interface CountryRankingsResponse {
+  data: RankingChannel[];
+  meta: {
+    country_code: string;
+    country_name: string;
+    snapshot_date: string;
+    total_ranked_channels: number;
+    applied_limit: number;
+  };
+}
+
+export interface CategoryRankingsResponse {
+  data: RankingChannel[];
+  meta: {
+    category_slug: string;
+    category_name: string;
+    snapshot_date: string;
+    total_ranked_channels: number;
+    applied_limit: number;
+  };
+}
+
+export interface RankingCollection {
+  collection_id: string;
+  slug: string;
+  name: string;
+  description: string;
+  icon: string;
+  channels_count: number;
+  cta_label: string;
+  cta_target: string;
+}
+
+export interface CollectionsResponse {
+  data: RankingCollection[];
+  meta: {
+    total_active_collections: number;
+    applied_limit: number;
+  };
+}
+
 function getAuthHeaders(): Record<string, string> {
   const token = getAccessToken();
   if (!token) {
@@ -177,6 +232,59 @@ export async function fetchChannels(filters: ChannelFilters = {}): Promise<Chann
 
 export async function fetchChannelOverview(channelId: string): Promise<ChannelOverviewResponse> {
   const response = await fetch(`${API_BASE}/v1.0/channels/${channelId}/overview`, {
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function fetchCountryRankings(
+  params: { country_code?: string; limit?: number } = {},
+): Promise<CountryRankingsResponse> {
+  const searchParams = new URLSearchParams();
+  if (params.country_code) searchParams.set("country_code", params.country_code);
+  if (params.limit) searchParams.set("limit", String(params.limit));
+
+  const response = await fetch(`${API_BASE}/v1.0/rankings/countries?${searchParams.toString()}`, {
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function fetchCategoryRankings(
+  params: { category_slug?: string; limit?: number } = {},
+): Promise<CategoryRankingsResponse> {
+  const searchParams = new URLSearchParams();
+  if (params.category_slug) searchParams.set("category_slug", params.category_slug);
+  if (params.limit) searchParams.set("limit", String(params.limit));
+
+  const response = await fetch(`${API_BASE}/v1.0/rankings/categories?${searchParams.toString()}`, {
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function fetchRankingCollections(
+  params: { limit?: number } = {},
+): Promise<CollectionsResponse> {
+  const searchParams = new URLSearchParams();
+  if (params.limit) searchParams.set("limit", String(params.limit));
+
+  const response = await fetch(`${API_BASE}/v1.0/rankings/collections?${searchParams.toString()}`, {
     headers: getAuthHeaders(),
   });
 

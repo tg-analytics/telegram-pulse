@@ -5,6 +5,7 @@ import {
   Medal,
   Award,
   TrendingUp,
+  TrendingDown,
   Users,
   Globe,
   Tag,
@@ -14,53 +15,150 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  useCategoryRankings,
+  useCountryRankings,
+  useRankingCollections,
+} from "@/hooks/useRankings";
+import type { RankingChannel } from "@/services/channelsApi";
 
-const countryRankings = [
-  { rank: 1, name: "Tech News Daily", country: "USA", subscribers: "2.1M", growth: "+8.2%" },
-  { rank: 2, name: "Crypto Insights", country: "USA", subscribers: "1.8M", growth: "+12.4%" },
-  { rank: 3, name: "News Breaking", country: "USA", subscribers: "1.5M", growth: "+5.1%" },
-  { rank: 4, name: "Gaming Universe", country: "USA", subscribers: "1.2M", growth: "+9.8%" },
-  { rank: 5, name: "Marketing Pro", country: "USA", subscribers: "980K", growth: "+7.3%" },
-];
+const DEFAULT_COUNTRY_CODE = "US";
+const DEFAULT_CATEGORY_NAME = "Technology";
 
-const categoryRankings = [
-  { rank: 1, name: "Tech News Daily", category: "Technology", subscribers: "2.1M", er: "4.8%" },
-  { rank: 2, name: "AI Weekly", category: "Technology", subscribers: "1.4M", er: "5.2%" },
-  { rank: 3, name: "Dev Community", category: "Technology", subscribers: "890K", er: "6.1%" },
-  { rank: 4, name: "Startup Hub", category: "Technology", subscribers: "750K", er: "4.5%" },
-  { rank: 5, name: "Code Masters", category: "Technology", subscribers: "620K", er: "5.8%" },
-];
+function formatCompactNumber(num: number): string {
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+  return String(num);
+}
 
-const collections = [
-  { name: "Crypto & Blockchain", count: 2450, icon: "💎" },
-  { name: "Tech & Startups", count: 1890, icon: "🚀" },
-  { name: "News & Politics", count: 3200, icon: "📰" },
-  { name: "Gaming & Esports", count: 1560, icon: "🎮" },
-  { name: "Finance & Investment", count: 980, icon: "💰" },
-  { name: "Education & Learning", count: 1240, icon: "📚" },
-];
+function formatTrendValue(value: number): string {
+  const sign = value >= 0 ? "+" : "";
+  return `${sign}${value}%`;
+}
 
 const RankBadge = ({ rank }: { rank: number }) => {
   if (rank === 1) return <Trophy className="w-5 h-5 text-yellow-500" />;
   if (rank === 2) return <Medal className="w-5 h-5 text-gray-400" />;
   if (rank === 3) return <Award className="w-5 h-5 text-amber-600" />;
-  return <span className="w-5 h-5 flex items-center justify-center text-sm font-bold text-muted-foreground">{rank}</span>;
+  return (
+    <span className="w-5 h-5 flex items-center justify-center text-sm font-bold text-muted-foreground">
+      {rank}
+    </span>
+  );
 };
 
+function RankingsRows({ channels }: { channels: RankingChannel[] }) {
+  return (
+    <div className="divide-y divide-border">
+      {channels.map((channel, index) => {
+        const isPositiveTrend = channel.trend_value >= 0;
+        const TrendIcon = isPositiveTrend ? TrendingUp : TrendingDown;
+
+        return (
+          <motion.div
+            key={channel.channel_id}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.05 }}
+            className="p-4 flex items-center gap-4 hover:bg-muted/30 transition-colors"
+          >
+            <div className="w-8 flex justify-center">
+              <RankBadge rank={channel.rank} />
+            </div>
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
+              {channel.name.charAt(0)}
+            </div>
+            <div className="flex-1">
+              <h3 className="font-medium text-foreground">{channel.name}</h3>
+              <p className="text-sm text-muted-foreground">{channel.context_label}</p>
+            </div>
+            <div className="text-right">
+              <div className="flex items-center gap-1 text-foreground font-medium">
+                <Users className="w-4 h-4 text-muted-foreground" />
+                {formatCompactNumber(channel.subscribers)}
+              </div>
+              <span
+                className={`text-sm flex items-center gap-1 justify-end ${
+                  isPositiveTrend ? "text-success" : "text-destructive"
+                }`}
+              >
+                <TrendIcon className="w-3 h-3" />
+                {formatTrendValue(channel.trend_value)}
+              </span>
+            </div>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RankingsSkeleton({ testId }: { testId: string }) {
+  return (
+    <div className="p-4 space-y-4" data-testid={testId}>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div key={index} className="flex items-center gap-4">
+          <Skeleton className="w-8 h-5" />
+          <Skeleton className="w-10 h-10 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-44" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+          <div className="w-20 space-y-2">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-3 w-16 ml-auto" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CollectionsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="collections-skeleton">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={index} className="bg-card rounded-xl shadow-card p-6 space-y-4">
+          <Skeleton className="h-8 w-8" />
+          <Skeleton className="h-5 w-44" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-20" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const RankingsPage = () => {
+  const {
+    data: countryData,
+    isLoading: isCountryLoading,
+    isError: isCountryError,
+    refetch: refetchCountries,
+  } = useCountryRankings(DEFAULT_COUNTRY_CODE, 10);
+
+  const {
+    data: categoryData,
+    isLoading: isCategoryLoading,
+    isError: isCategoryError,
+    refetch: refetchCategories,
+  } = useCategoryRankings("technology", 10);
+
+  const {
+    data: collectionsData,
+    isLoading: isCollectionsLoading,
+    isError: isCollectionsError,
+    refetch: refetchCollections,
+  } = useRankingCollections(20);
+
   return (
     <MainLayout>
       <div className="pt-14 lg:pt-0 min-h-screen bg-background">
         <div className="container py-8">
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
-          >
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              Rankings & Collections
-            </h1>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground mb-2">Rankings & Collections</h1>
             <p className="text-muted-foreground">
               Discover top channels by country, category, and curated collections
             </p>
@@ -97,42 +195,34 @@ const RankingsPage = () => {
                 <div className="p-6 border-b border-border flex items-center justify-between">
                   <div>
                     <h2 className="text-lg font-semibold text-foreground">Country Rankings</h2>
-                    <p className="text-sm text-muted-foreground">Top channels in 83 countries</p>
+                    <p className="text-sm text-muted-foreground">
+                      Top {countryData?.meta.total_ranked_channels ?? 0} channels in{" "}
+                      {countryData?.meta.country_name ?? "United States"}
+                    </p>
                   </div>
-                  <Badge variant="secondary">USA</Badge>
+                  <Badge variant="secondary">{countryData?.meta.country_code ?? DEFAULT_COUNTRY_CODE}</Badge>
                 </div>
-                <div className="divide-y divide-border">
-                  {countryRankings.map((channel, index) => (
-                    <motion.div
-                      key={channel.rank}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="p-4 flex items-center gap-4 hover:bg-muted/30 transition-colors"
-                    >
-                      <div className="w-8 flex justify-center">
-                        <RankBadge rank={channel.rank} />
-                      </div>
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                        {channel.name.charAt(0)}
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-medium text-foreground">{channel.name}</h3>
-                        <p className="text-sm text-muted-foreground">{channel.country}</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-1 text-foreground font-medium">
-                          <Users className="w-4 h-4 text-muted-foreground" />
-                          {channel.subscribers}
-                        </div>
-                        <span className="text-sm text-success flex items-center gap-1 justify-end">
-                          <TrendingUp className="w-3 h-3" />
-                          {channel.growth}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+
+                {isCountryLoading && <RankingsSkeleton testId="country-rankings-skeleton" />}
+
+                {isCountryError && (
+                  <div className="p-6 text-center space-y-3" data-testid="country-rankings-error">
+                    <p className="text-destructive">Failed to load country rankings.</p>
+                    <Button variant="outline" size="sm" onClick={() => refetchCountries()}>
+                      Retry
+                    </Button>
+                  </div>
+                )}
+
+                {!isCountryLoading && !isCountryError && !countryData?.data.length && (
+                  <div className="p-8 text-center text-muted-foreground" data-testid="country-rankings-empty">
+                    No rankings available.
+                  </div>
+                )}
+
+                {!isCountryLoading && !isCountryError && Boolean(countryData?.data.length) && (
+                  <RankingsRows channels={countryData?.data ?? []} />
+                )}
               </motion.div>
             </TabsContent>
 
@@ -145,72 +235,85 @@ const RankingsPage = () => {
                 <div className="p-6 border-b border-border flex items-center justify-between">
                   <div>
                     <h2 className="text-lg font-semibold text-foreground">Category Rankings</h2>
-                    <p className="text-sm text-muted-foreground">Top channels in 41 categories</p>
+                    <p className="text-sm text-muted-foreground">
+                      Top {categoryData?.meta.total_ranked_channels ?? 0} channels in{" "}
+                      {categoryData?.meta.category_name ?? DEFAULT_CATEGORY_NAME}
+                    </p>
                   </div>
-                  <Badge variant="secondary">Technology</Badge>
+                  <Badge variant="secondary">{categoryData?.meta.category_name ?? DEFAULT_CATEGORY_NAME}</Badge>
                 </div>
-                <div className="divide-y divide-border">
-                  {categoryRankings.map((channel, index) => (
-                    <motion.div
-                      key={channel.rank}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="p-4 flex items-center gap-4 hover:bg-muted/30 transition-colors"
-                    >
-                      <div className="w-8 flex justify-center">
-                        <RankBadge rank={channel.rank} />
-                      </div>
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                        {channel.name.charAt(0)}
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-medium text-foreground">{channel.name}</h3>
-                        <p className="text-sm text-muted-foreground">{channel.category}</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-1 text-foreground font-medium">
-                          <Users className="w-4 h-4 text-muted-foreground" />
-                          {channel.subscribers}
-                        </div>
-                        <span className="text-sm text-muted-foreground">
-                          ER: {channel.er}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+
+                {isCategoryLoading && <RankingsSkeleton testId="category-rankings-skeleton" />}
+
+                {isCategoryError && (
+                  <div className="p-6 text-center space-y-3" data-testid="category-rankings-error">
+                    <p className="text-destructive">Failed to load category rankings.</p>
+                    <Button variant="outline" size="sm" onClick={() => refetchCategories()}>
+                      Retry
+                    </Button>
+                  </div>
+                )}
+
+                {!isCategoryLoading && !isCategoryError && !categoryData?.data.length && (
+                  <div className="p-8 text-center text-muted-foreground" data-testid="category-rankings-empty">
+                    No rankings available.
+                  </div>
+                )}
+
+                {!isCategoryLoading && !isCategoryError && Boolean(categoryData?.data.length) && (
+                  <RankingsRows channels={categoryData?.data ?? []} />
+                )}
               </motion.div>
             </TabsContent>
 
             <TabsContent value="collections">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {collections.map((collection, index) => (
-                  <motion.div
-                    key={collection.name}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                  >
-                    <Link
-                      to="/catalog"
-                      className="block bg-card rounded-xl shadow-card p-6 hover:shadow-card-hover transition-all group border border-transparent hover:border-primary/20"
+              {isCollectionsLoading && <CollectionsSkeleton />}
+
+              {isCollectionsError && (
+                <div className="bg-card rounded-xl shadow-card p-6 text-center space-y-3" data-testid="collections-error">
+                  <p className="text-destructive">Failed to load collections.</p>
+                  <Button variant="outline" size="sm" onClick={() => refetchCollections()}>
+                    Retry
+                  </Button>
+                </div>
+              )}
+
+              {!isCollectionsLoading && !isCollectionsError && !collectionsData?.data.length && (
+                <div className="bg-card rounded-xl shadow-card p-8 text-center text-muted-foreground" data-testid="collections-empty">
+                  No collections available.
+                </div>
+              )}
+
+              {!isCollectionsLoading && !isCollectionsError && Boolean(collectionsData?.data.length) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {collectionsData?.data.map((collection, index) => (
+                    <motion.div
+                      key={collection.collection_id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
                     >
-                      <div className="text-4xl mb-4">{collection.icon}</div>
-                      <h3 className="text-lg font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">
-                        {collection.name}
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        {collection.count.toLocaleString()} channels
-                      </p>
-                      <span className="text-primary text-sm font-medium flex items-center gap-1">
-                        Explore
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      </span>
-                    </Link>
-                  </motion.div>
-                ))}
-              </div>
+                      <Link
+                        to={collection.cta_target}
+                        className="block bg-card rounded-xl shadow-card p-6 hover:shadow-card-hover transition-all group border border-transparent hover:border-primary/20"
+                      >
+                        <div className="text-4xl mb-4">{collection.icon}</div>
+                        <h3 className="text-lg font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">
+                          {collection.name}
+                        </h3>
+                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{collection.description}</p>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          {formatCompactNumber(collection.channels_count)} channels
+                        </p>
+                        <span className="text-primary text-sm font-medium flex items-center gap-1">
+                          {collection.cta_label}
+                          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </span>
+                      </Link>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>
