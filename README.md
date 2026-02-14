@@ -36,6 +36,14 @@ npm i
 npm run dev
 ```
 
+## Environment variables
+
+Create a local `.env` file (for example by copying `.env.example`) and set:
+
+- `VITE_API_BASE` - backend API base URL.
+- `VITE_GOOGLE_CLIENT_ID` - Google OAuth client ID used by Google Identity Services.
+- `VITE_ACCOUNT_ID` - account UUID sent to `POST /v1.0/signin/google`.
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).

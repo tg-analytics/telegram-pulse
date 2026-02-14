@@ -1,8 +1,5 @@
-const API_BASE = "https://api-1-af7e.onrender.com";
-
-// NOTE: For authenticated access, enable Lovable Cloud and proxy through an edge function.
-// The CHANNELS_API_TOKEN secret is stored but only accessible from edge functions.
-const TOKEN = "";
+import { API_BASE } from "@/config/api";
+import { getAccessToken } from "@/services/authStorage";
 
 export interface Channel {
   channel_id: string;
@@ -69,7 +66,7 @@ export async function fetchChannels(filters: ChannelFilters = {}): Promise<Chann
     params.set("limit", "20");
   }
 
-  const token = TOKEN;
+  const token = getAccessToken();
   const headers: Record<string, string> = {};
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
