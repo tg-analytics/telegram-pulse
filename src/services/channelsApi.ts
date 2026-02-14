@@ -42,6 +42,104 @@ export interface ChannelFilters {
   cursor?: string;
 }
 
+export interface KpiMetric {
+  value: number;
+  delta: number;
+  delta_percent: number;
+}
+
+export interface OverviewChannel {
+  channel_id: string;
+  telegram_channel_id: number;
+  name: string;
+  username: string | null;
+  avatar_url: string | null;
+  description: string | null;
+  about_text: string | null;
+  website_url: string | null;
+  status: string;
+  country_code: string | null;
+  category_slug: string | null;
+  category_name: string | null;
+}
+
+export interface OverviewKpis {
+  subscribers: KpiMetric;
+  avg_views: KpiMetric;
+  engagement_rate: KpiMetric;
+  posts_per_day: KpiMetric;
+}
+
+export interface OverviewChartPoint {
+  date: string;
+  subscribers: number;
+  engagement_rate: number;
+}
+
+export interface OverviewSimilarChannel {
+  channel_id: string;
+  name: string;
+  username: string | null;
+  subscribers: number;
+  similarity_score: number;
+}
+
+export interface OverviewTag {
+  tag_id: string;
+  slug: string;
+  name: string;
+  relevance_score: number;
+}
+
+export interface OverviewRecentPost {
+  post_id: string;
+  telegram_message_id: number;
+  published_at: string;
+  title: string | null;
+  content_text: string | null;
+  views_count: number;
+  reactions_count: number;
+  comments_count: number;
+  forwards_count: number;
+  external_post_url: string | null;
+}
+
+export interface OverviewInOut30d {
+  incoming: number;
+  outgoing: number;
+}
+
+export interface ChannelOverviewData {
+  channel: OverviewChannel;
+  kpis: OverviewKpis;
+  chart: {
+    range: string;
+    points: OverviewChartPoint[];
+  };
+  similar_channels: OverviewSimilarChannel[];
+  tags: OverviewTag[];
+  recent_posts: OverviewRecentPost[];
+  inout_30d?: OverviewInOut30d;
+  incoming_30d?: number;
+  outgoing_30d?: number;
+}
+
+export interface ChannelOverviewResponse {
+  data: ChannelOverviewData;
+  meta: Record<string, unknown>;
+}
+
+function getAuthHeaders(): Record<string, string> {
+  const token = getAccessToken();
+  if (!token) {
+    return {};
+  }
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
+
 export async function fetchChannels(filters: ChannelFilters = {}): Promise<ChannelsResponse> {
   const params = new URLSearchParams();
 
@@ -66,13 +164,21 @@ export async function fetchChannels(filters: ChannelFilters = {}): Promise<Chann
     params.set("limit", "20");
   }
 
-  const token = getAccessToken();
-  const headers: Record<string, string> = {};
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
+  const headers = getAuthHeaders();
 
   const response = await fetch(`${API_BASE}/v1.0/channels?${params.toString()}`, { headers });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function fetchChannelOverview(channelId: string): Promise<ChannelOverviewResponse> {
+  const response = await fetch(`${API_BASE}/v1.0/channels/${channelId}/overview`, {
+    headers: getAuthHeaders(),
+  });
 
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`);
