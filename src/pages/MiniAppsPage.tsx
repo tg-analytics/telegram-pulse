@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Search,
@@ -8,7 +8,6 @@ import {
   Users,
   TrendingUp,
   Star,
-  ExternalLink,
   ChevronDown,
   Gamepad2,
   ShoppingBag,
@@ -22,7 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -35,207 +34,257 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { useMiniAppsSummary } from "@/hooks/useMiniAppsSummary";
+import { useMiniApps } from "@/hooks/useMiniApps";
+import type { MiniApp, MiniAppsSummaryPeriod } from "@/services/miniAppsApi";
+
+const categories = [
+  { slug: "all", label: "All" },
+  { slug: "games", label: "Games" },
+  { slug: "finance", label: "Finance" },
+  { slug: "shopping", label: "Shopping" },
+  { slug: "productivity", label: "Productivity" },
+  { slug: "entertainment", label: "Entertainment" },
+  { slug: "social", label: "Social" },
+] as const;
 
 const categoryIcons: Record<string, React.ReactNode> = {
-  Games: <Gamepad2 className="w-4 h-4" />,
-  Shopping: <ShoppingBag className="w-4 h-4" />,
-  Finance: <Wallet className="w-4 h-4" />,
-  Productivity: <Briefcase className="w-4 h-4" />,
-  Entertainment: <Music className="w-4 h-4" />,
-  Social: <MessageCircle className="w-4 h-4" />,
+  games: <Gamepad2 className="w-4 h-4" />,
+  shopping: <ShoppingBag className="w-4 h-4" />,
+  finance: <Wallet className="w-4 h-4" />,
+  productivity: <Briefcase className="w-4 h-4" />,
+  entertainment: <Music className="w-4 h-4" />,
+  social: <MessageCircle className="w-4 h-4" />,
 };
 
-const mockMiniApps = [
-  {
-    id: "1",
-    name: "Hamster Kombat",
-    icon: "🐹",
-    category: "Games",
-    dailyUsers: 2500000,
-    totalUsers: 45000000,
-    sessions: 8500000,
-    rating: 4.8,
-    growth: 15.2,
-    description: "Tap-to-earn crypto game with hamster theme",
-    launched: "2024-03",
-  },
-  {
-    id: "2",
-    name: "Notcoin",
-    icon: "🪙",
-    category: "Games",
-    dailyUsers: 1800000,
-    totalUsers: 35000000,
-    sessions: 5200000,
-    rating: 4.6,
-    growth: 8.5,
-    description: "Popular tap-to-earn mining game",
-    launched: "2024-01",
-  },
-  {
-    id: "3",
-    name: "Wallet",
-    icon: "💳",
-    category: "Finance",
-    dailyUsers: 1200000,
-    totalUsers: 28000000,
-    sessions: 3800000,
-    rating: 4.9,
-    growth: 22.3,
-    description: "Official Telegram crypto wallet",
-    launched: "2023-09",
-  },
-  {
-    id: "4",
-    name: "Fragment",
-    icon: "💎",
-    category: "Finance",
-    dailyUsers: 450000,
-    totalUsers: 8500000,
-    sessions: 980000,
-    rating: 4.7,
-    growth: 12.1,
-    description: "NFT marketplace for usernames and numbers",
-    launched: "2022-10",
-  },
-  {
-    id: "5",
-    name: "Yescoin",
-    icon: "✅",
-    category: "Games",
-    dailyUsers: 950000,
-    totalUsers: 18000000,
-    sessions: 2800000,
-    rating: 4.4,
-    growth: 28.7,
-    description: "Swipe-to-earn game with social features",
-    launched: "2024-04",
-  },
-  {
-    id: "6",
-    name: "Major",
-    icon: "⭐",
-    category: "Games",
-    dailyUsers: 680000,
-    totalUsers: 12000000,
-    sessions: 1950000,
-    rating: 4.3,
-    growth: 45.2,
-    description: "Star collection mini-game",
-    launched: "2024-06",
-  },
-  {
-    id: "7",
-    name: "Blum",
-    icon: "🌸",
-    category: "Finance",
-    dailyUsers: 520000,
-    totalUsers: 9500000,
-    sessions: 1420000,
-    rating: 4.5,
-    growth: 32.8,
-    description: "Crypto exchange mini-app",
-    launched: "2024-05",
-  },
-  {
-    id: "8",
-    name: "Catizen",
-    icon: "🐱",
-    category: "Games",
-    dailyUsers: 380000,
-    totalUsers: 7200000,
-    sessions: 1100000,
-    rating: 4.2,
-    growth: 18.9,
-    description: "Cat-themed tap game with NFTs",
-    launched: "2024-04",
-  },
-];
+type SortOption = "users" | "growth" | "rating" | "newest";
 
-const categories = ["All", "Games", "Finance", "Shopping", "Productivity", "Entertainment", "Social"];
+const sortMap: Record<SortOption, { sort_by: "daily_users" | "growth" | "rating" | "launched_at"; sort_order: "asc" | "desc" }> = {
+  users: { sort_by: "daily_users", sort_order: "desc" },
+  growth: { sort_by: "growth", sort_order: "desc" },
+  rating: { sort_by: "rating", sort_order: "desc" },
+  newest: { sort_by: "launched_at", sort_order: "desc" },
+};
 
-function formatNumber(num: number): string {
-  if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
-  if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+function formatCompactNumber(num: number): string {
+  if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(1)}B`;
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
   return num.toString();
 }
 
+function formatNumber(num: number): string {
+  return new Intl.NumberFormat("en-US").format(num);
+}
+
+function formatSessionTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.abs(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+function formatDelta(value: number): string {
+  const prefix = value >= 0 ? "+" : "";
+  return `${prefix}${value}`;
+}
+
+function getCategoryLabel(categorySlug: string): string {
+  const found = categories.find((category) => category.slug === categorySlug);
+  return found?.label ?? categorySlug;
+}
+
+function getInitials(name: string): string {
+  const words = name.trim().split(/\s+/).slice(0, 2);
+  return words.map((word) => word[0]?.toUpperCase() ?? "").join("") || "?";
+}
+
 export default function MiniAppsPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [searchInput, setSearchInput] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [period, setPeriod] = useState<MiniAppsSummaryPeriod>("7d");
+  const [sortOption, setSortOption] = useState<SortOption>("users");
+  const [minDailyUsersInput, setMinDailyUsersInput] = useState("");
+  const [minRating, setMinRating] = useState("any");
+  const [launchWithinDays, setLaunchWithinDays] = useState("any");
+  const [minGrowth, setMinGrowth] = useState("any");
+  const [cursor, setCursor] = useState<string | undefined>();
+  const [items, setItems] = useState<MiniApp[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalEstimate, setTotalEstimate] = useState<number | undefined>();
 
-  const filteredApps = mockMiniApps.filter((app) => {
-    const matchesSearch = app.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "All" || app.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+  const summaryQuery = useMiniAppsSummary(period);
+
+  const parsedMinDailyUsers = useMemo(() => {
+    if (!minDailyUsersInput.trim()) return undefined;
+    const value = Number(minDailyUsersInput);
+    return Number.isFinite(value) && value > 0 ? value : undefined;
+  }, [minDailyUsersInput]);
+
+  const parsedMinRating = useMemo(() => {
+    if (minRating === "any") return undefined;
+    const value = Number(minRating);
+    return Number.isFinite(value) ? value : undefined;
+  }, [minRating]);
+
+  const parsedLaunchWithinDays = useMemo(() => {
+    if (launchWithinDays === "any") return undefined;
+    const value = Number(launchWithinDays);
+    return Number.isFinite(value) ? value : undefined;
+  }, [launchWithinDays]);
+
+  const parsedMinGrowth = useMemo(() => {
+    if (minGrowth === "any") return undefined;
+    const value = Number(minGrowth);
+    return Number.isFinite(value) ? value : undefined;
+  }, [minGrowth]);
+
+  const baseFilters = useMemo(() => {
+    const sort = sortMap[sortOption];
+    return {
+      q: searchInput.trim() || undefined,
+      category_slug: selectedCategory === "all" ? undefined : selectedCategory,
+      min_daily_users: parsedMinDailyUsers,
+      min_rating: parsedMinRating,
+      launch_within_days: parsedLaunchWithinDays,
+      min_growth: parsedMinGrowth,
+      sort_by: sort.sort_by,
+      sort_order: sort.sort_order,
+      limit: 20,
+    };
+  }, [searchInput, selectedCategory, parsedMinDailyUsers, parsedMinRating, parsedLaunchWithinDays, parsedMinGrowth, sortOption]);
+
+  const baseFilterKey = useMemo(() => JSON.stringify(baseFilters), [baseFilters]);
+
+  useEffect(() => {
+    setCursor(undefined);
+    setItems([]);
+    setNextCursor(null);
+    setHasMore(false);
+    setTotalEstimate(undefined);
+  }, [baseFilterKey]);
+
+  const listQuery = useMiniApps({
+    ...baseFilters,
+    cursor,
   });
+
+  useEffect(() => {
+    if (!listQuery.data) return;
+
+    const incoming = listQuery.data.data;
+    if (cursor) {
+      setItems((previous) => [
+        ...previous,
+        ...incoming.filter((incomingItem) => !previous.some((existing) => existing.mini_app_id === incomingItem.mini_app_id)),
+      ]);
+    } else {
+      setItems(incoming);
+    }
+    setNextCursor(listQuery.data.page.next_cursor);
+    setHasMore(Boolean(listQuery.data.page.has_more));
+    if (listQuery.data.meta.total_estimate !== undefined) {
+      setTotalEstimate(listQuery.data.meta.total_estimate);
+    }
+  }, [listQuery.data, cursor]);
+
+  const summary = summaryQuery.data?.data;
 
   return (
     <MainLayout>
       <div className="p-6 lg:p-8 space-y-6">
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="space-y-2"
         >
-          <h1 className="text-3xl font-bold text-foreground">Mini Apps Analytics</h1>
-          <p className="text-muted-foreground">
-            Explore and analyze 4,400+ Telegram mini apps
-          </p>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Mini Apps Analytics</h1>
+              <p className="text-muted-foreground">Explore and analyze Telegram mini apps</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {(["7d", "30d", "90d"] as MiniAppsSummaryPeriod[]).map((item) => (
+                <Button
+                  key={item}
+                  variant={period === item ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setPeriod(item)}
+                >
+                  {item}
+                </Button>
+              ))}
+            </div>
+          </div>
         </motion.div>
 
-        {/* Stats Cards */}
+        {summaryQuery.isError && (
+          <div className="bg-destructive/10 text-destructive rounded-xl p-4 flex items-center justify-between gap-4">
+            <span>Failed to load mini-app summary.</span>
+            <Button variant="outline" size="sm" onClick={() => summaryQuery.refetch()}>Retry</Button>
+          </div>
+        )}
+
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Total Mini Apps</CardDescription>
-              <CardTitle className="text-3xl">4,412</CardTitle>
+              <CardTitle className="text-3xl">{summary ? formatNumber(summary.total_mini_apps) : "-"}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                <span className="text-green-500">+127</span> this week
+                <span className="text-green-500">{summary ? formatDelta(summary.total_mini_apps_delta) : "-"}</span> this period
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Daily Active Users</CardDescription>
-              <CardTitle className="text-3xl">28.5M</CardTitle>
+              <CardTitle className="text-3xl">{summary ? formatCompactNumber(summary.daily_active_users) : "-"}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                <span className="text-green-500">+12.3%</span> from last week
+                <span className="text-green-500">
+                  {summary ? `${formatDelta(summary.daily_active_users_delta_percent)}%` : "-"}
+                </span>{" "}
+                from last period
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Total Sessions</CardDescription>
-              <CardTitle className="text-3xl">156M</CardTitle>
+              <CardTitle className="text-3xl">{summary ? formatCompactNumber(summary.total_sessions) : "-"}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                <span className="text-green-500">+8.7%</span> from last week
+                <span className="text-green-500">
+                  {summary ? `${formatDelta(summary.total_sessions_delta_percent)}%` : "-"}
+                </span>{" "}
+                from last period
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Avg. Session Time</CardDescription>
-              <CardTitle className="text-3xl">4:32</CardTitle>
+              <CardTitle className="text-3xl">
+                {summary ? formatSessionTime(summary.avg_session_seconds) : "-"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                <span className="text-green-500">+0:18</span> from last week
+                <span className="text-green-500">
+                  {summary ? `${formatDelta(summary.avg_session_seconds_delta)}s` : "-"}
+                </span>{" "}
+                from last period
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Search and Filters */}
         <Card>
           <CardContent className="p-4">
             <div className="flex flex-col lg:flex-row gap-4">
@@ -244,24 +293,25 @@ export default function MiniAppsPage() {
                 <Input
                   placeholder="Search mini apps..."
                   className="pl-10"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="w-[160px]">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
+                    {categories.map((category) => (
+                      <SelectItem key={category.slug} value={category.slug}>
+                        {category.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <Select defaultValue="users">
+
+                <Select value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
                   <SelectTrigger className="w-[160px]">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
@@ -272,11 +322,13 @@ export default function MiniAppsPage() {
                     <SelectItem value="newest">Newest</SelectItem>
                   </SelectContent>
                 </Select>
+
                 <div className="flex border rounded-md">
                   <Button
                     variant={viewMode === "grid" ? "secondary" : "ghost"}
                     size="icon"
                     onClick={() => setViewMode("grid")}
+                    aria-label="Grid view"
                   >
                     <Grid3X3 className="w-4 h-4" />
                   </Button>
@@ -284,6 +336,7 @@ export default function MiniAppsPage() {
                     variant={viewMode === "list" ? "secondary" : "ghost"}
                     size="icon"
                     onClick={() => setViewMode("list")}
+                    aria-label="List view"
                   >
                     <List className="w-4 h-4" />
                   </Button>
@@ -291,7 +344,6 @@ export default function MiniAppsPage() {
               </div>
             </div>
 
-            {/* Advanced Filters */}
             <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" className="mt-2 gap-2">
@@ -304,11 +356,16 @@ export default function MiniAppsPage() {
                 <div className="grid gap-4 md:grid-cols-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Min. Daily Users</label>
-                    <Input type="number" placeholder="e.g., 100000" />
+                    <Input
+                      type="number"
+                      placeholder="e.g., 100000"
+                      value={minDailyUsersInput}
+                      onChange={(event) => setMinDailyUsersInput(event.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Min. Rating</label>
-                    <Select defaultValue="any">
+                    <Select value={minRating} onValueChange={setMinRating}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -321,7 +378,7 @@ export default function MiniAppsPage() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Launch Date</label>
-                    <Select defaultValue="any">
+                    <Select value={launchWithinDays} onValueChange={setLaunchWithinDays}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -335,7 +392,7 @@ export default function MiniAppsPage() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Growth Rate</label>
-                    <Select defaultValue="any">
+                    <Select value={minGrowth} onValueChange={setMinGrowth}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -353,71 +410,92 @@ export default function MiniAppsPage() {
           </CardContent>
         </Card>
 
-        {/* Category Tabs */}
-        <Tabs defaultValue="all" className="space-y-4">
+        <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="space-y-4">
           <TabsList className="flex-wrap h-auto gap-2 bg-transparent p-0">
-            {categories.map((cat) => (
+            {categories.map((category) => (
               <TabsTrigger
-                key={cat}
-                value={cat.toLowerCase()}
-                onClick={() => setSelectedCategory(cat)}
+                key={category.slug}
+                value={category.slug}
+                data-testid={`category-tab-${category.slug}`}
+                onClick={() => setSelectedCategory(category.slug)}
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-4"
               >
-                {categoryIcons[cat] && <span className="mr-2">{categoryIcons[cat]}</span>}
-                {cat}
+                {categoryIcons[category.slug] && <span className="mr-2">{categoryIcons[category.slug]}</span>}
+                {category.label}
               </TabsTrigger>
             ))}
           </TabsList>
         </Tabs>
 
-        {/* Mini Apps Grid/List */}
-        {viewMode === "grid" ? (
+        {listQuery.isError && (
+          <div className="bg-destructive/10 text-destructive rounded-xl p-4 flex items-center justify-between gap-4">
+            <span>Failed to load mini apps.</span>
+            <Button variant="outline" size="sm" onClick={() => listQuery.refetch()}>Retry</Button>
+          </div>
+        )}
+
+        {(listQuery.isLoading || (listQuery.isFetching && items.length === 0)) && (
+          <div data-testid="mini-apps-page-loading" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <Card key={index}>
+                <CardContent className="p-4">
+                  <div className="animate-pulse space-y-3">
+                    <div className="h-4 bg-muted rounded w-1/2" />
+                    <div className="h-3 bg-muted rounded w-1/3" />
+                    <div className="h-3 bg-muted rounded w-2/3" />
+                    <div className="h-3 bg-muted rounded w-1/2" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {!listQuery.isLoading && items.length === 0 && !listQuery.isError ? (
+          <Card>
+            <CardContent className="p-8 text-center text-muted-foreground">No mini apps found for current filters.</CardContent>
+          </Card>
+        ) : viewMode === "grid" ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredApps.map((app) => (
+            {items.map((app) => (
               <motion.div
-                key={app.id}
+                key={app.mini_app_id}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 whileHover={{ y: -4 }}
                 transition={{ duration: 0.2 }}
               >
-                <Card className="h-full hover:border-primary/50 transition-colors cursor-pointer">
+                <Card className="h-full hover:border-primary/50 transition-colors">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl">
-                          {app.icon}
+                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
+                          {getInitials(app.name)}
                         </div>
                         <div>
                           <h3 className="font-semibold">{app.name}</h3>
                           <Badge variant="secondary" className="text-xs">
-                            {app.category}
+                            {getCategoryLabel(app.category_slug)}
                           </Badge>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <ExternalLink className="w-4 h-4" />
-                      </Button>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                      {app.description}
-                    </p>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="flex items-center gap-1">
                         <Users className="w-4 h-4 text-muted-foreground" />
-                        <span>{formatNumber(app.dailyUsers)} DAU</span>
+                        <span>{formatCompactNumber(app.daily_users)} DAU</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <TrendingUp className="w-4 h-4 text-green-500" />
-                        <span className="text-green-500">+{app.growth}%</span>
+                        <span className={app.growth_weekly >= 0 ? "text-green-500" : "text-red-500"}>
+                          {app.growth_weekly >= 0 ? "+" : ""}{app.growth_weekly}%
+                        </span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Star className="w-4 h-4 text-amber-500" />
                         <span>{app.rating}</span>
                       </div>
-                      <div className="text-muted-foreground">
-                        {formatNumber(app.totalUsers)} total
-                      </div>
+                      <div className="text-muted-foreground">{formatCompactNumber(app.total_users)} total</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -442,45 +520,35 @@ export default function MiniAppsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredApps.map((app) => (
-                      <tr key={app.id} className="border-b hover:bg-muted/30 cursor-pointer">
+                    {items.map((app) => (
+                      <tr key={app.mini_app_id} className="border-b hover:bg-muted/30">
                         <td className="p-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-xl">
-                              {app.icon}
+                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
+                              {getInitials(app.name)}
                             </div>
                             <div>
                               <p className="font-medium">{app.name}</p>
-                              <p className="text-sm text-muted-foreground line-clamp-1">
-                                {app.description}
-                              </p>
+                              <p className="text-sm text-muted-foreground">/{app.slug}</p>
                             </div>
                           </div>
                         </td>
                         <td className="p-4">
-                          <Badge variant="secondary">{app.category}</Badge>
+                          <Badge variant="secondary">{getCategoryLabel(app.category_slug)}</Badge>
                         </td>
-                        <td className="p-4 text-right font-medium">
-                          {formatNumber(app.dailyUsers)}
-                        </td>
-                        <td className="p-4 text-right">
-                          {formatNumber(app.totalUsers)}
-                        </td>
-                        <td className="p-4 text-right">
-                          {formatNumber(app.sessions)}
-                        </td>
+                        <td className="p-4 text-right font-medium">{formatCompactNumber(app.daily_users)}</td>
+                        <td className="p-4 text-right">{formatCompactNumber(app.total_users)}</td>
+                        <td className="p-4 text-right">{formatCompactNumber(app.sessions)}</td>
                         <td className="p-4 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Star className="w-4 h-4 text-amber-500" />
                             {app.rating}
                           </div>
                         </td>
-                        <td className="p-4 text-right text-green-500">
-                          +{app.growth}%
+                        <td className={`p-4 text-right ${app.growth_weekly >= 0 ? "text-green-500" : "text-red-500"}`}>
+                          {app.growth_weekly >= 0 ? "+" : ""}{app.growth_weekly}%
                         </td>
-                        <td className="p-4 text-right text-muted-foreground">
-                          {app.launched}
-                        </td>
+                        <td className="p-4 text-right text-muted-foreground">{app.launched_at}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -490,9 +558,23 @@ export default function MiniAppsPage() {
           </Card>
         )}
 
-        {/* Results count */}
+        {hasMore && (
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!nextCursor || listQuery.isFetching) return;
+                setCursor(nextCursor);
+              }}
+              disabled={!nextCursor || listQuery.isFetching}
+            >
+              {listQuery.isFetching ? "Loading..." : "Load More"}
+            </Button>
+          </div>
+        )}
+
         <p className="text-sm text-muted-foreground text-center">
-          Showing {filteredApps.length} of {mockMiniApps.length} mini apps
+          Showing {items.length} of {totalEstimate ?? items.length} mini apps
         </p>
       </div>
     </MainLayout>
