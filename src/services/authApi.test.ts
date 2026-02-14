@@ -14,7 +14,7 @@ describe("signinWithGoogle", () => {
     vi.restoreAllMocks();
   });
 
-  it("sends id_token and account_id and returns parsed session", async () => {
+  it("sends id_token and returns parsed session", async () => {
     const responsePayload = {
       access_token: "jwt-token",
       token_type: "bearer",
@@ -39,7 +39,6 @@ describe("signinWithGoogle", () => {
 
     const requestPayload = {
       id_token: "google-id-token",
-      account_id: "11111111-1111-1111-1111-111111111111",
     };
 
     const result = await signinWithGoogle(requestPayload);
@@ -66,7 +65,6 @@ describe("signinWithGoogle", () => {
     await expect(
       signinWithGoogle({
         id_token: "bad-token",
-        account_id: "11111111-1111-1111-1111-111111111111",
       }),
     ).rejects.toThrow("Invalid Google token");
   });

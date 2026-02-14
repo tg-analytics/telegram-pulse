@@ -2,7 +2,7 @@ import { API_BASE } from "@/config/api";
 
 export interface GoogleSigninRequest {
   id_token: string;
-  account_id: string;
+  account_id?: string;
 }
 
 export interface AuthUser {

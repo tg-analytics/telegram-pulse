@@ -5,7 +5,7 @@ import { Mail, ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { ACCOUNT_ID, GOOGLE_CLIENT_ID } from "@/config/auth";
+import { GOOGLE_CLIENT_ID } from "@/config/auth";
 import { loadGoogleIdentityScript } from "@/lib/googleIdentity";
 import { signinWithGoogle } from "@/services/authApi";
 
@@ -46,17 +46,6 @@ export function LoginDialog() {
       return;
     }
 
-    if (!ACCOUNT_ID) {
-      const message = "Google sign-in is unavailable. Missing VITE_ACCOUNT_ID.";
-      setGoogleError(message);
-      toast({
-        title: "Google sign-in unavailable",
-        description: "Set VITE_ACCOUNT_ID in your environment and reload.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     const initGoogleButton = async () => {
       setGoogleError(null);
       setIsGoogleLoading(true);
@@ -88,22 +77,10 @@ export function LoginDialog() {
               return;
             }
 
-            if (!ACCOUNT_ID) {
-              const message = "Google sign-in is unavailable. Missing VITE_ACCOUNT_ID.";
-              setGoogleError(message);
-              toast({
-                title: "Google sign-in unavailable",
-                description: "Set VITE_ACCOUNT_ID in your environment and reload.",
-                variant: "destructive",
-              });
-              return;
-            }
-
             setIsGoogleLoading(true);
             try {
               const authSession = await signinWithGoogle({
                 id_token: response.credential,
-                account_id: ACCOUNT_ID,
               });
               if (cancelled) {
                 return;

@@ -9,7 +9,6 @@ const signinWithGoogleMock = vi.fn();
 
 vi.mock("@/config/auth", () => ({
   GOOGLE_CLIENT_ID: "google-client-id",
-  ACCOUNT_ID: "11111111-1111-1111-1111-111111111111",
 }));
 
 vi.mock("@/lib/googleIdentity", () => ({
@@ -109,7 +108,6 @@ describe("LoginDialog", () => {
     await waitFor(() =>
       expect(signinWithGoogleMock).toHaveBeenCalledWith({
         id_token: "google-id-token",
-        account_id: "11111111-1111-1111-1111-111111111111",
       }),
     );
     await waitFor(() => expect(localStorage.getItem("auth-session")).not.toBeNull());
@@ -129,7 +127,6 @@ describe("LoginDialog", () => {
     await waitFor(() =>
       expect(signinWithGoogleMock).toHaveBeenCalledWith({
         id_token: "bad-token",
-        account_id: "11111111-1111-1111-1111-111111111111",
       }),
     );
     expect(await screen.findByText("Backend denied Google token")).toBeInTheDocument();
