@@ -8,6 +8,7 @@ const useAccountProfileMock = vi.fn();
 const useAccountTeamMock = vi.fn();
 const useAccountApiKeysMock = vi.fn();
 const useAccountBillingMock = vi.fn();
+const useAccountChannelsMock = vi.fn();
 const toastMock = vi.fn();
 
 const updateMeMutateAsync = vi.fn();
@@ -18,6 +19,11 @@ const revokeApiKeyMutateAsync = vi.fn();
 const updateSubscriptionMutateAsync = vi.fn();
 const invoiceDownloadMutateAsync = vi.fn();
 const fetchNextPageMock = vi.fn();
+const accountChannelsFetchNextPageMock = vi.fn();
+
+vi.mock("react-router-dom", () => ({
+  Link: ({ children, to }: { children: React.ReactNode; to: string }) => <a href={to}>{children}</a>,
+}));
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => useAuthMock(),
@@ -37,6 +43,10 @@ vi.mock("@/hooks/useAccountApiKeys", () => ({
 
 vi.mock("@/hooks/useAccountBilling", () => ({
   useAccountBilling: (...args: unknown[]) => useAccountBillingMock(...args),
+}));
+
+vi.mock("@/hooks/useAccountChannels", () => ({
+  useAccountChannels: (...args: unknown[]) => useAccountChannelsMock(...args),
 }));
 
 vi.mock("@/hooks/use-toast", () => ({
@@ -236,6 +246,36 @@ beforeEach(() => {
     invoiceDownloadMutation: { mutateAsync: invoiceDownloadMutateAsync, isPending: false },
   });
 
+  useAccountChannelsMock.mockReturnValue({
+    channels: [
+      {
+        account_id: "acc-1",
+        channel_id: "ch-1",
+        alias_name: "Primary Tech Channel",
+        monitoring_enabled: true,
+        is_favorite: true,
+        added_at: "2026-02-14T12:00:00Z",
+        verified: true,
+      },
+      {
+        account_id: "acc-1",
+        channel_id: "ch-2",
+        alias_name: "Market Updates",
+        monitoring_enabled: false,
+        is_favorite: false,
+        added_at: "2026-02-13T12:00:00Z",
+      },
+    ],
+    channelsQuery: {
+      isLoading: false,
+      isError: false,
+      error: null,
+    },
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    fetchNextPage: accountChannelsFetchNextPageMock,
+  });
+
   createApiKeyMutateAsync.mockResolvedValue({ data: { secret: "tlm_prod_secret" } });
   invoiceDownloadMutateAsync.mockResolvedValue({ data: { url: "https://example.com/invoice.pdf" } });
 });
@@ -320,5 +360,104 @@ describe("AccountPage", () => {
 
     expect(screen.getByText(/API Usage \(2026-02-01 to 2026-02-15\)/)).toBeInTheDocument();
     expect(screen.getAllByText(/2026-02-01 to 2026-02-15/).length).toBeGreaterThan(0);
+  });
+
+  it("renders account channels with favorite, monitoring, and verification state", () => {
+    renderPage();
+
+    expect(screen.getByText("Primary Tech Channel")).toBeInTheDocument();
+    expect(screen.getByText("Market Updates")).toBeInTheDocument();
+    expect(screen.getByText("Favorite")).toBeInTheDocument();
+    expect(screen.getByText("Monitoring On")).toBeInTheDocument();
+    expect(screen.getByText("Monitoring Off")).toBeInTheDocument();
+    expect(screen.getByText("Verified")).toBeInTheDocument();
+  });
+
+  it("does not show verified badge when verified is missing", () => {
+    useAccountChannelsMock.mockReturnValue({
+      channels: [
+        {
+          account_id: "acc-1",
+          channel_id: "ch-2",
+          alias_name: "Only Unverified",
+          monitoring_enabled: false,
+          is_favorite: false,
+          added_at: "2026-02-13T12:00:00Z",
+        },
+      ],
+      channelsQuery: {
+        isLoading: false,
+        isError: false,
+        error: null,
+      },
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: accountChannelsFetchNextPageMock,
+    });
+
+    renderPage();
+    expect(screen.queryByText("Verified")).not.toBeInTheDocument();
+  });
+
+  it("loads more channels when channel pagination is available", () => {
+    useAccountChannelsMock.mockReturnValue({
+      channels: [
+        {
+          account_id: "acc-1",
+          channel_id: "ch-1",
+          alias_name: "Primary Tech Channel",
+          monitoring_enabled: true,
+          is_favorite: true,
+          added_at: "2026-02-14T12:00:00Z",
+          verified: true,
+        },
+      ],
+      channelsQuery: {
+        isLoading: false,
+        isError: false,
+        error: null,
+      },
+      hasNextPage: true,
+      isFetchingNextPage: false,
+      fetchNextPage: accountChannelsFetchNextPageMock,
+    });
+
+    renderPage();
+    fireEvent.click(screen.getAllByRole("button", { name: "Load More" })[0]);
+    expect(accountChannelsFetchNextPageMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows channels empty state", () => {
+    useAccountChannelsMock.mockReturnValue({
+      channels: [],
+      channelsQuery: {
+        isLoading: false,
+        isError: false,
+        error: null,
+      },
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: accountChannelsFetchNextPageMock,
+    });
+
+    renderPage();
+    expect(screen.getByText("No channels connected to this account yet.")).toBeInTheDocument();
+  });
+
+  it("shows channels error state", () => {
+    useAccountChannelsMock.mockReturnValue({
+      channels: [],
+      channelsQuery: {
+        isLoading: false,
+        isError: true,
+        error: new Error("channels exploded"),
+      },
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: accountChannelsFetchNextPageMock,
+    });
+
+    renderPage();
+    expect(screen.getByText("channels exploded")).toBeInTheDocument();
   });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import {
   User,
   Shield,
@@ -47,6 +48,7 @@ import { useAccountProfile } from "@/hooks/useAccountProfile";
 import { useAccountTeam } from "@/hooks/useAccountTeam";
 import { useAccountApiKeys } from "@/hooks/useAccountApiKeys";
 import { useAccountBilling } from "@/hooks/useAccountBilling";
+import { useAccountChannels } from "@/hooks/useAccountChannels";
 
 type ThemeValue = "light" | "dark" | "system";
 
@@ -83,6 +85,7 @@ export default function AccountPage() {
   const team = useAccountTeam(accountId);
   const api = useAccountApiKeys(accountId);
   const billing = useAccountBilling(accountId);
+  const accountChannels = useAccountChannels(accountId);
 
   const [addApiKeyDialogOpen, setAddApiKeyDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -333,6 +336,7 @@ export default function AccountPage() {
   const accountMissing = !accountId;
 
   const teamMembers = team.teamQuery.data?.data ?? [];
+  const channels = accountChannels.channels;
   const apiKeys = api.activeApiKeys;
   const subscription = billing.subscriptionQuery.data?.data;
   const usage = billing.usageQuery.data?.data;
@@ -615,13 +619,60 @@ export default function AccountPage() {
               <CardHeader>
                 <CardTitle>My Channels</CardTitle>
                 <CardDescription>
-                  Channel management is unchanged in this rollout and remains available in the dedicated channel pages.
+                  Connected channels for this account with verification and monitoring status.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  This tab is intentionally non-blocking while account profile, team, API keys, and billing use live endpoints.
-                </p>
+              <CardContent className="space-y-4">
+                {accountChannels.channelsQuery.isLoading && (
+                  <p className="text-sm text-muted-foreground">Loading channels...</p>
+                )}
+
+                {accountChannels.channelsQuery.isError && (
+                  <p className="text-sm text-destructive">
+                    {getErrorMessage(accountChannels.channelsQuery.error, "Failed to load account channels.")}
+                  </p>
+                )}
+
+                {!accountChannels.channelsQuery.isLoading &&
+                  !accountChannels.channelsQuery.isError &&
+                  channels.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No channels connected to this account yet.</p>
+                  )}
+
+                <div className="space-y-3">
+                  {channels.map((channel) => (
+                    <div
+                      key={channel.channel_id}
+                      className="rounded-lg border p-4 bg-card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="space-y-1">
+                        <p className="font-semibold text-foreground">{channel.alias_name}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{channel.channel_id}</p>
+                        <p className="text-xs text-muted-foreground">Added {formatDate(channel.added_at)}</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {channel.is_favorite && <Badge>Favorite</Badge>}
+                        <Badge variant={channel.monitoring_enabled ? "default" : "secondary"}>
+                          {channel.monitoring_enabled ? "Monitoring On" : "Monitoring Off"}
+                        </Badge>
+                        {channel.verified === true && <Badge variant="outline">Verified</Badge>}
+                        <Button variant="outline" size="sm" asChild>
+                          <Link to={`/channel/${channel.channel_id}`}>Open Channel</Link>
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {accountChannels.hasNextPage && (
+                  <Button
+                    variant="outline"
+                    onClick={() => accountChannels.fetchNextPage()}
+                    disabled={accountChannels.isFetchingNextPage || accountMissing}
+                  >
+                    {accountChannels.isFetchingNextPage ? "Loading..." : "Load More"}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

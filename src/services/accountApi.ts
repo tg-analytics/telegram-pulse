@@ -60,6 +60,26 @@ export interface TeamMember {
 
 export interface TeamMembersResponse extends DataResponse<TeamMember[]> {}
 
+export interface AccountChannel {
+  account_id: string;
+  channel_id: string;
+  alias_name: string;
+  monitoring_enabled: boolean;
+  is_favorite: boolean;
+  added_at: string;
+  verified?: boolean;
+}
+
+export interface AccountChannelsPage {
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
+export interface AccountChannelsResponse extends MetaResponse {
+  data: AccountChannel[];
+  page: AccountChannelsPage;
+}
+
 export interface InviteMemberPayload {
   email: string;
   role: string;
@@ -302,6 +322,26 @@ export async function fetchMembers(accountId: string): Promise<TeamMembersRespon
   });
 
   return parseJsonOrThrow<TeamMembersResponse>(response, `Failed to load team members (${response.status}).`);
+}
+
+export async function fetchAccountChannels(
+  accountId: string,
+  params: { limit?: number; cursor?: string } = {},
+): Promise<AccountChannelsResponse> {
+  const search = new URLSearchParams();
+  search.set("limit", String(params.limit ?? 20));
+  if (params.cursor) {
+    search.set("cursor", params.cursor);
+  }
+
+  const response = await fetch(`${API_BASE}/v1.0/accounts/${accountId}/channels?${search.toString()}`, {
+    headers: getAccountHeaders(accountId),
+  });
+
+  return parseJsonOrThrow<AccountChannelsResponse>(
+    response,
+    `Failed to load account channels (${response.status}).`,
+  );
 }
 
 export async function inviteMember(accountId: string, payload: InviteMemberPayload): Promise<MetaResponse> {

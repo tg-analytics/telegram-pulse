@@ -3,6 +3,7 @@ import { API_BASE } from "@/config/api";
 import { setStoredSession } from "@/services/authStorage";
 import {
   fetchApiUsage,
+  fetchAccountChannels,
   fetchInvoices,
   fetchMe,
   fetchMembers,
@@ -103,6 +104,40 @@ describe("accountApi", () => {
 
     const [url] = vi.mocked(global.fetch).mock.calls[0];
     expect(url).toBe(`${API_BASE}/v1.0/accounts/acc-1/invoices?limit=20&cursor=abc`);
+  });
+
+  it("adds account headers for account channels endpoint", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: [], page: { next_cursor: null, has_more: false }, meta: {} }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await fetchAccountChannels("acc-1");
+
+    const [url, options] = vi.mocked(global.fetch).mock.calls[0];
+    expect(url).toBe(`${API_BASE}/v1.0/accounts/acc-1/channels?limit=20`);
+    expect(options?.headers).toEqual({
+      Authorization: "Bearer session-token",
+      "X-Account-Id": "acc-1",
+    });
+  });
+
+  it("builds cursor query for account channels", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: [], page: { next_cursor: null, has_more: false }, meta: {} }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await fetchAccountChannels("acc-1", { limit: 20, cursor: "eyJjdXJzb3IiOiIxIn0=" });
+
+    const [url] = vi.mocked(global.fetch).mock.calls[0];
+    expect(url).toBe(
+      `${API_BASE}/v1.0/accounts/acc-1/channels?limit=20&cursor=eyJjdXJzb3IiOiIxIn0%3D`,
+    );
   });
 
   it("surfaces nested error.message payload", async () => {
