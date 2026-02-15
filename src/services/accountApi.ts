@@ -525,28 +525,3 @@ export async function fetchInvoiceDownloadUrl(
     `Failed to get invoice download URL (${response.status}).`,
   );
 }
-
-export interface AddAccountChannelPayload {
-  channel_id: string;
-  alias_name: string;
-  monitoring_enabled: boolean;
-}
-
-export async function addAccountChannel(
-  accountId: string,
-  payload: AddAccountChannelPayload,
-): Promise<DataResponse<AccountChannel>> {
-  const response = await fetch(`${API_BASE}/v1.0/accounts/${accountId}/channels`, {
-    method: "POST",
-    headers: {
-      ...getAccountHeaders(accountId),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  return parseJsonOrThrow<DataResponse<AccountChannel>>(
-    response,
-    `Failed to add channel (${response.status}).`,
-  );
-}

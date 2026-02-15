@@ -18,14 +18,6 @@ export function useAccountChannels(accountId?: string) {
     staleTime: 30_000,
   });
 
-  const addChannelMutation = useMutation({
-    mutationFn: (payload: AddAccountChannelPayload) =>
-      addAccountChannel(accountId as string, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["account", "channels", accountId] });
-    },
-  });
-
   const channels = useMemo(
     () => channelsQuery.data?.pages.flatMap((page) => page.data) ?? [],
     [channelsQuery.data?.pages],
