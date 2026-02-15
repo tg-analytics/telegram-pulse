@@ -90,6 +90,11 @@ export default function AccountPage() {
   const [addApiKeyDialogOpen, setAddApiKeyDialogOpen] = useState(false);
   const [addChannelDialogOpen, setAddChannelDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [addChannelDialogOpen, setAddChannelDialogOpen] = useState(false);
+
+  const [newChannelId, setNewChannelId] = useState("");
+  const [newChannelAlias, setNewChannelAlias] = useState("");
+  const [newChannelMonitoring, setNewChannelMonitoring] = useState(true);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -358,6 +363,27 @@ export default function AccountPage() {
       toast({
         title: "Download failed",
         description: getErrorMessage(error, "Could not get invoice download link."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddChannel = async () => {
+    try {
+      await accountChannels.addChannelMutation.mutateAsync({
+        channel_id: newChannelId.trim(),
+        alias_name: newChannelAlias.trim(),
+        monitoring_enabled: newChannelMonitoring,
+      });
+      setNewChannelId("");
+      setNewChannelAlias("");
+      setNewChannelMonitoring(true);
+      setAddChannelDialogOpen(false);
+      toast({ title: "Channel added", description: "Channel has been added to your account." });
+    } catch (error) {
+      toast({
+        title: "Add channel failed",
+        description: getErrorMessage(error, "Could not add channel."),
         variant: "destructive",
       });
     }
