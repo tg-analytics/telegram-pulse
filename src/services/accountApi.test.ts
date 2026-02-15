@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { API_BASE } from "@/config/api";
 import { setStoredSession } from "@/services/authStorage";
 import {
+  addAccountChannel,
   fetchApiUsage,
   fetchAccountChannels,
   fetchInvoices,
@@ -137,6 +138,52 @@ describe("accountApi", () => {
     const [url] = vi.mocked(global.fetch).mock.calls[0];
     expect(url).toBe(
       `${API_BASE}/v1.0/accounts/acc-1/channels?limit=20&cursor=eyJjdXJzb3IiOiIxIn0%3D`,
+    );
+  });
+
+  it("posts add account channel with account headers and payload", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            account_id: "acc-1",
+            channel_id: "9f28253d-8ffd-4d2f-a67c-ebaf0f6ba2f2",
+            alias_name: "Primary Tech Channel",
+            monitoring_enabled: true,
+            is_favorite: true,
+            added_at: "2026-02-14T12:00:00Z",
+          },
+          meta: {},
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+
+    await addAccountChannel("acc-1", {
+      channel_id: "9f28253d-8ffd-4d2f-a67c-ebaf0f6ba2f2",
+      alias_name: "Primary Tech Channel",
+      monitoring_enabled: true,
+      is_favorite: true,
+    });
+
+    const [url, options] = vi.mocked(global.fetch).mock.calls[0];
+    expect(url).toBe(`${API_BASE}/v1.0/accounts/acc-1/channels`);
+    expect(options?.method).toBe("POST");
+    expect(options?.headers).toEqual({
+      Authorization: "Bearer session-token",
+      "X-Account-Id": "acc-1",
+      "Content-Type": "application/json",
+    });
+    expect(options?.body).toBe(
+      JSON.stringify({
+        channel_id: "9f28253d-8ffd-4d2f-a67c-ebaf0f6ba2f2",
+        alias_name: "Primary Tech Channel",
+        monitoring_enabled: true,
+        is_favorite: true,
+      }),
     );
   });
 

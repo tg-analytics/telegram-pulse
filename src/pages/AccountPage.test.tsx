@@ -18,6 +18,7 @@ const createApiKeyMutateAsync = vi.fn();
 const revokeApiKeyMutateAsync = vi.fn();
 const updateSubscriptionMutateAsync = vi.fn();
 const invoiceDownloadMutateAsync = vi.fn();
+const addChannelMutateAsync = vi.fn();
 const fetchNextPageMock = vi.fn();
 const accountChannelsFetchNextPageMock = vi.fn();
 
@@ -271,6 +272,7 @@ beforeEach(() => {
       isError: false,
       error: null,
     },
+    addChannelMutation: { mutateAsync: addChannelMutateAsync, isPending: false },
     hasNextPage: false,
     isFetchingNextPage: false,
     fetchNextPage: accountChannelsFetchNextPageMock,
@@ -367,10 +369,31 @@ describe("AccountPage", () => {
 
     expect(screen.getByText("Primary Tech Channel")).toBeInTheDocument();
     expect(screen.getByText("Market Updates")).toBeInTheDocument();
-    expect(screen.getByText("Favorite")).toBeInTheDocument();
+    expect(screen.getAllByText("Favorite").length).toBeGreaterThan(0);
     expect(screen.getByText("Monitoring On")).toBeInTheDocument();
     expect(screen.getByText("Monitoring Off")).toBeInTheDocument();
     expect(screen.getByText("Verified")).toBeInTheDocument();
+  });
+
+  it("submits add channel payload", async () => {
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText("Channel ID"), {
+      target: { value: "9f28253d-8ffd-4d2f-a67c-ebaf0f6ba2f2" },
+    });
+    fireEvent.change(screen.getByLabelText("Alias Name"), {
+      target: { value: "Primary Tech Channel" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Connect Channel" }));
+
+    await waitFor(() => {
+      expect(addChannelMutateAsync).toHaveBeenCalledWith({
+        channel_id: "9f28253d-8ffd-4d2f-a67c-ebaf0f6ba2f2",
+        alias_name: "Primary Tech Channel",
+        monitoring_enabled: true,
+        is_favorite: true,
+      });
+    });
   });
 
   it("does not show verified badge when verified is missing", () => {
@@ -390,6 +413,7 @@ describe("AccountPage", () => {
         isError: false,
         error: null,
       },
+      addChannelMutation: { mutateAsync: addChannelMutateAsync, isPending: false },
       hasNextPage: false,
       isFetchingNextPage: false,
       fetchNextPage: accountChannelsFetchNextPageMock,
@@ -417,6 +441,7 @@ describe("AccountPage", () => {
         isError: false,
         error: null,
       },
+      addChannelMutation: { mutateAsync: addChannelMutateAsync, isPending: false },
       hasNextPage: true,
       isFetchingNextPage: false,
       fetchNextPage: accountChannelsFetchNextPageMock,
@@ -435,6 +460,7 @@ describe("AccountPage", () => {
         isError: false,
         error: null,
       },
+      addChannelMutation: { mutateAsync: addChannelMutateAsync, isPending: false },
       hasNextPage: false,
       isFetchingNextPage: false,
       fetchNextPage: accountChannelsFetchNextPageMock,
@@ -452,6 +478,7 @@ describe("AccountPage", () => {
         isError: true,
         error: new Error("channels exploded"),
       },
+      addChannelMutation: { mutateAsync: addChannelMutateAsync, isPending: false },
       hasNextPage: false,
       isFetchingNextPage: false,
       fetchNextPage: accountChannelsFetchNextPageMock,
