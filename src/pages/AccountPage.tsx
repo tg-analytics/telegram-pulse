@@ -107,7 +107,8 @@ export default function AccountPage() {
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("viewer");
-  const [channelId, setChannelId] = useState("");
+  const [telegramChannelId, setTelegramChannelId] = useState("");
+  const [channelName, setChannelName] = useState("");
   const [aliasName, setAliasName] = useState("");
   const [monitoringEnabled, setMonitoringEnabled] = useState(true);
 
@@ -246,14 +247,17 @@ export default function AccountPage() {
 
   const handleAddChannel = async () => {
     try {
+      const parsedTelegramChannelId = Number(telegramChannelId.trim());
       await accountChannels.addChannelMutation.mutateAsync({
-        channel_id: channelId.trim(),
+        telegram_channel_id: parsedTelegramChannelId,
+        channel_name: channelName.trim(),
         alias_name: aliasName.trim(),
         monitoring_enabled: monitoringEnabled,
         is_favorite: false,
       });
 
-      setChannelId("");
+      setTelegramChannelId("");
+      setChannelName("");
       setAliasName("");
       setMonitoringEnabled(true);
       setAddChannelDialogOpen(false);
@@ -656,7 +660,8 @@ export default function AccountPage() {
                   onOpenChange={(open) => {
                     setAddChannelDialogOpen(open);
                     if (!open) {
-                      setChannelId("");
+                      setTelegramChannelId("");
+                      setChannelName("");
                       setAliasName("");
                       setMonitoringEnabled(true);
                     }
@@ -675,12 +680,22 @@ export default function AccountPage() {
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
-                        <Label htmlFor="channelId">Channel ID</Label>
+                        <Label htmlFor="telegramChannelId">Telegram Channel ID</Label>
                         <Input
-                          id="channelId"
-                          value={channelId}
-                          onChange={(event) => setChannelId(event.target.value)}
-                          placeholder="9f28253d-8ffd-4d2f-a67c-ebaf0f6ba2f2"
+                          id="telegramChannelId"
+                          value={telegramChannelId}
+                          onChange={(event) => setTelegramChannelId(event.target.value)}
+                          placeholder="100001"
+                          inputMode="numeric"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="channelName">Channel Name</Label>
+                        <Input
+                          id="channelName"
+                          value={channelName}
+                          onChange={(event) => setChannelName(event.target.value)}
+                          placeholder="Tech News Daily"
                         />
                       </div>
                       <div className="space-y-2">
@@ -707,7 +722,13 @@ export default function AccountPage() {
                       </Button>
                       <Button
                         onClick={handleAddChannel}
-                        disabled={accountChannels.addChannelMutation.isPending || !channelId.trim() || accountMissing}
+                        disabled={
+                          accountChannels.addChannelMutation.isPending ||
+                          !telegramChannelId.trim() ||
+                          Number.isNaN(Number(telegramChannelId.trim())) ||
+                          !channelName.trim() ||
+                          accountMissing
+                        }
                       >
                         Connect Channel
                       </Button>

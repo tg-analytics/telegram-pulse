@@ -163,7 +163,8 @@ describe("accountApi", () => {
     );
 
     await addAccountChannel("acc-1", {
-      channel_id: "9f28253d-8ffd-4d2f-a67c-ebaf0f6ba2f2",
+      telegram_channel_id: 100001,
+      channel_name: "Tech News Daily",
       alias_name: "Primary Tech Channel",
       monitoring_enabled: true,
       is_favorite: true,
@@ -179,7 +180,8 @@ describe("accountApi", () => {
     });
     expect(options?.body).toBe(
       JSON.stringify({
-        channel_id: "9f28253d-8ffd-4d2f-a67c-ebaf0f6ba2f2",
+        telegram_channel_id: 100001,
+        channel_name: "Tech News Daily",
         alias_name: "Primary Tech Channel",
         monitoring_enabled: true,
         is_favorite: true,

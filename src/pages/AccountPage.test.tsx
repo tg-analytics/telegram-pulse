@@ -378,8 +378,11 @@ describe("AccountPage", () => {
   it("submits add channel payload", async () => {
     renderPage();
 
-    fireEvent.change(screen.getByLabelText("Channel ID"), {
-      target: { value: "9f28253d-8ffd-4d2f-a67c-ebaf0f6ba2f2" },
+    fireEvent.change(screen.getByLabelText("Telegram Channel ID"), {
+      target: { value: "100001" },
+    });
+    fireEvent.change(screen.getByLabelText("Channel Name"), {
+      target: { value: "Tech News Daily" },
     });
     fireEvent.change(screen.getByLabelText("Alias Name"), {
       target: { value: "Primary Tech Channel" },
@@ -388,7 +391,8 @@ describe("AccountPage", () => {
 
     await waitFor(() => {
       expect(addChannelMutateAsync).toHaveBeenCalledWith({
-        channel_id: "9f28253d-8ffd-4d2f-a67c-ebaf0f6ba2f2",
+        telegram_channel_id: 100001,
+        channel_name: "Tech News Daily",
         alias_name: "Primary Tech Channel",
         monitoring_enabled: true,
         is_favorite: false,

@@ -81,7 +81,8 @@ export interface AccountChannelsResponse extends MetaResponse {
 }
 
 export interface AddAccountChannelPayload {
-  channel_id: string;
+  telegram_channel_id: number;
+  channel_name: string;
   alias_name: string;
   monitoring_enabled: boolean;
   is_favorite: boolean;
