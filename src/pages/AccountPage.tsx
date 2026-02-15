@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   User,
@@ -11,15 +11,10 @@ import {
   Download,
   Plus,
   Copy,
-  Eye,
-  EyeOff,
   Check,
   X,
   Trash2,
-  RefreshCw,
-  BadgeCheck,
   MessageSquare,
-  BarChart3,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,88 +41,320 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { useAccountProfile } from "@/hooks/useAccountProfile";
+import { useAccountTeam } from "@/hooks/useAccountTeam";
+import { useAccountApiKeys } from "@/hooks/useAccountApiKeys";
+import { useAccountBilling } from "@/hooks/useAccountBilling";
 
-// Mock data
-const mockChannels = [
-  {
-    id: "1",
-    name: "Tech News Daily",
-    username: "@technewsdaily",
-    subscribers: 125000,
-    verified: true,
-    avatar: "TN",
-  },
-  {
-    id: "2",
-    name: "Crypto Insights",
-    username: "@cryptoinsights",
-    subscribers: 89000,
-    verified: false,
-    avatar: "CI",
-  },
-  {
-    id: "3",
-    name: "Marketing Tips",
-    username: "@marketingtips",
-    subscribers: 45000,
-    verified: false,
-    avatar: "MT",
-  },
-];
+type ThemeValue = "light" | "dark" | "system";
 
-const mockApiKeys = [
-  {
-    id: "1",
-    name: "Production API",
-    key: "tlm_prod_a1b2c3d4e5f6g7h8i9j0",
-    created: "2024-01-15",
-    lastUsed: "2024-01-28",
-    requests: 15420,
-  },
-  {
-    id: "2",
-    name: "Development",
-    key: "tlm_dev_x9y8z7w6v5u4t3s2r1q0",
-    created: "2024-01-20",
-    lastUsed: "2024-01-27",
-    requests: 3250,
-  },
-];
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
 
-const mockTeamMembers = [
-  { id: "1", name: "John Doe", email: "john@example.com", role: "Owner", avatar: "JD" },
-  { id: "2", name: "Jane Smith", email: "jane@example.com", role: "Admin", avatar: "JS" },
-  { id: "3", name: "Bob Wilson", email: "bob@example.com", role: "Viewer", avatar: "BW" },
-];
+function formatDate(value?: string | null) {
+  if (!value) return "Never";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return date.toLocaleDateString();
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "Never";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return date.toLocaleString();
+}
+
+function initials(first?: string | null, last?: string | null) {
+  const firstInitial = first?.trim()?.[0] ?? "";
+  const lastInitial = last?.trim()?.[0] ?? "";
+  const joined = `${firstInitial}${lastInitial}`.toUpperCase();
+  return joined || "U";
+}
 
 export default function AccountPage() {
-  const [showApiKey, setShowApiKey] = useState<string | null>(null);
-  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
+  const { session } = useAuth();
+  const accountId = session?.account_id;
+
+  const profile = useAccountProfile();
+  const team = useAccountTeam(accountId);
+  const api = useAccountApiKeys(accountId);
+  const billing = useAccountBilling(accountId);
+
   const [addApiKeyDialogOpen, setAddApiKeyDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
-  const copyToClipboard = (text: string) => {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [telegramUsername, setTelegramUsername] = useState("");
+
+  const [languageCode, setLanguageCode] = useState("en");
+  const [timezone, setTimezone] = useState("UTC");
+  const [theme, setTheme] = useState<ThemeValue>("system");
+
+  const [emailNotifications, setEmailNotifications] = useState(false);
+  const [telegramBotAlerts, setTelegramBotAlerts] = useState(false);
+  const [weeklyReports, setWeeklyReports] = useState(false);
+  const [marketingUpdates, setMarketingUpdates] = useState(false);
+  const [pushNotifications, setPushNotifications] = useState(false);
+
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("viewer");
+
+  const [apiKeyName, setApiKeyName] = useState("");
+  const [scopeReadChannels, setScopeReadChannels] = useState(true);
+  const [scopeReadAds, setScopeReadAds] = useState(true);
+  const [scopeExport, setScopeExport] = useState(false);
+  const [rateLimit, setRateLimit] = useState("1000");
+  const [createdSecret, setCreatedSecret] = useState<string | null>(null);
+
+  const [planCode, setPlanCode] = useState("pro");
+  const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState(false);
+
+  const me = profile.meQuery.data;
+  const preferences = profile.preferencesQuery.data?.data;
+  const notifications = profile.notificationsQuery.data?.data;
+
+  useEffect(() => {
+    if (!me) return;
+    setFirstName(me.first_name ?? "");
+    setLastName(me.last_name ?? "");
+    setTelegramUsername(me.telegram_username ?? "");
+  }, [me]);
+
+  useEffect(() => {
+    if (!preferences) return;
+    setLanguageCode(preferences.language_code);
+    setTimezone(preferences.timezone);
+    setTheme(preferences.theme);
+  }, [preferences]);
+
+  useEffect(() => {
+    if (!notifications) return;
+    setEmailNotifications(notifications.email_notifications);
+    setTelegramBotAlerts(notifications.telegram_bot_alerts);
+    setWeeklyReports(notifications.weekly_reports);
+    setMarketingUpdates(notifications.marketing_updates);
+    setPushNotifications(notifications.push_notifications);
+  }, [notifications]);
+
+  useEffect(() => {
+    const subscription = billing.subscriptionQuery.data?.data;
+    if (!subscription) return;
+    setPlanCode(subscription.plan_code);
+    setCancelAtPeriodEnd(subscription.cancel_at_period_end);
+  }, [billing.subscriptionQuery.data?.data]);
+
+  const apiUsage = api.apiUsageQuery.data?.data;
+  const successRate = useMemo(() => {
+    if (!apiUsage) return null;
+    return Math.max(0, 100 - apiUsage.error_rate);
+  }, [apiUsage]);
+
+  const invoices = useMemo(
+    () => billing.invoicesQuery.data?.pages.flatMap((page) => page.data) ?? [],
+    [billing.invoicesQuery.data?.pages],
+  );
+
+  const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    toast({ title: "Copied to clipboard", description: "API key copied successfully" });
+    toast({ title: "Copied to clipboard", description: `${label} copied successfully` });
   };
+
+  const handleProfileSave = async () => {
+    try {
+      await profile.updateMeMutation.mutateAsync({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        telegram_username: telegramUsername.trim(),
+      });
+      toast({ title: "Profile updated", description: "Your personal information was saved." });
+    } catch (error) {
+      toast({
+        title: "Profile update failed",
+        description: getErrorMessage(error, "Could not save profile changes."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePreferencesSave = async () => {
+    try {
+      await profile.updatePreferencesMutation.mutateAsync({
+        language_code: languageCode,
+        timezone,
+        theme,
+      });
+      toast({ title: "Preferences saved", description: "Your preferences were updated." });
+    } catch (error) {
+      toast({
+        title: "Preferences update failed",
+        description: getErrorMessage(error, "Could not save preferences."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleNotificationsSave = async () => {
+    try {
+      await profile.updateNotificationsMutation.mutateAsync({
+        email_notifications: emailNotifications,
+        telegram_bot_alerts: telegramBotAlerts,
+        weekly_reports: weeklyReports,
+        marketing_updates: marketingUpdates,
+        push_notifications: pushNotifications,
+      });
+      toast({ title: "Notifications updated", description: "Notification settings were saved." });
+    } catch (error) {
+      toast({
+        title: "Notification update failed",
+        description: getErrorMessage(error, "Could not save notifications."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleInviteMember = async () => {
+    try {
+      await team.inviteMemberMutation.mutateAsync({
+        email: inviteEmail.trim(),
+        role: inviteRole,
+        channel_access: [],
+      });
+      setInviteEmail("");
+      setInviteRole("viewer");
+      setInviteDialogOpen(false);
+      toast({ title: "Invitation sent", description: "Team invitation has been sent." });
+    } catch (error) {
+      toast({
+        title: "Invite failed",
+        description: getErrorMessage(error, "Could not send team invitation."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string, label: string) => {
+    const confirmed = window.confirm(`Remove ${label} from this account?`);
+    if (!confirmed) return;
+
+    try {
+      await team.removeMemberMutation.mutateAsync(memberId);
+      toast({ title: "Member removed", description: `${label} has been removed.` });
+    } catch (error) {
+      toast({
+        title: "Remove failed",
+        description: getErrorMessage(error, "Could not remove member."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateApiKey = async () => {
+    try {
+      const scopes = [
+        scopeReadChannels ? "read:channels" : null,
+        scopeReadAds ? "read:ads" : null,
+        scopeExport ? "export" : null,
+      ].filter(Boolean) as string[];
+
+      const response = await api.createApiKeyMutation.mutateAsync({
+        name: apiKeyName.trim(),
+        scopes,
+        rate_limit_per_hour: Number(rateLimit),
+      });
+
+      setCreatedSecret(response.data.secret);
+      setApiKeyName("");
+      setScopeReadChannels(true);
+      setScopeReadAds(true);
+      setScopeExport(false);
+      setRateLimit("1000");
+
+      toast({ title: "API key created", description: "Secret is shown once. Copy it now." });
+    } catch (error) {
+      toast({
+        title: "Create API key failed",
+        description: getErrorMessage(error, "Could not create API key."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRevokeApiKey = async (apiKeyId: string, name: string) => {
+    const confirmed = window.confirm(`Revoke API key \"${name}\"?`);
+    if (!confirmed) return;
+
+    try {
+      await api.revokeApiKeyMutation.mutateAsync(apiKeyId);
+      toast({ title: "API key revoked", description: `${name} is no longer active.` });
+    } catch (error) {
+      toast({
+        title: "Revoke failed",
+        description: getErrorMessage(error, "Could not revoke API key."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveSubscription = async () => {
+    try {
+      await billing.updateSubscriptionMutation.mutateAsync({
+        plan_code: planCode,
+        cancel_at_period_end: cancelAtPeriodEnd,
+      });
+      toast({ title: "Subscription updated", description: "Billing plan settings were updated." });
+    } catch (error) {
+      toast({
+        title: "Subscription update failed",
+        description: getErrorMessage(error, "Could not update subscription."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadInvoice = async (invoiceId: string) => {
+    try {
+      const response = await billing.invoiceDownloadMutation.mutateAsync(invoiceId);
+      window.open(response.data.url, "_blank", "noopener,noreferrer");
+      toast({ title: "Download started", description: "Invoice link opened in a new tab." });
+    } catch (error) {
+      toast({
+        title: "Download failed",
+        description: getErrorMessage(error, "Could not get invoice download link."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const accountMissing = !accountId;
+
+  const teamMembers = team.teamQuery.data?.data ?? [];
+  const apiKeys = api.activeApiKeys;
+  const subscription = billing.subscriptionQuery.data?.data;
+  const usage = billing.usageQuery.data?.data;
 
   return (
     <MainLayout>
       <div className="p-6 lg:p-8 space-y-6">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-2"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
           <h1 className="text-3xl font-bold text-foreground">Account Settings</h1>
-          <p className="text-muted-foreground">
-            Manage your profile, channels, and API access
-          </p>
+          <p className="text-muted-foreground">Manage your profile, channels, and API access</p>
         </motion.div>
 
-        {/* Tabs */}
+        {accountMissing && (
+          <Card className="border-destructive/50">
+            <CardContent className="pt-6">
+              <p className="text-sm text-destructive">
+                Account session is missing. Please sign in again to manage account settings.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         <Tabs defaultValue="profile" className="space-y-6">
           <TabsList className="bg-muted/50 p-1">
             <TabsTrigger value="profile" className="gap-2">
@@ -152,10 +379,8 @@ export default function AccountPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Profile Tab */}
           <TabsContent value="profile" className="space-y-6">
             <div className="grid gap-6 lg:grid-cols-2">
-              {/* Personal Information */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -165,37 +390,57 @@ export default function AccountPage() {
                   <CardDescription>Update your personal details</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {profile.meQuery.isError && (
+                    <p className="text-sm text-destructive">{getErrorMessage(profile.meQuery.error, "Failed to load profile.")}</p>
+                  )}
                   <div className="flex items-center gap-4">
                     <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-2xl font-bold text-primary">
-                      JD
+                      {initials(firstName, lastName)}
                     </div>
-                    <Button variant="outline" size="sm">
-                      Change Avatar
-                    </Button>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="firstName">First Name</Label>
-                      <Input id="firstName" defaultValue="John" />
+                      <Input
+                        id="firstName"
+                        value={firstName}
+                        onChange={(event) => setFirstName(event.target.value)}
+                        disabled={profile.meQuery.isLoading || accountMissing}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="lastName">Last Name</Label>
-                      <Input id="lastName" defaultValue="Doe" />
+                      <Input
+                        id="lastName"
+                        value={lastName}
+                        onChange={(event) => setLastName(event.target.value)}
+                        disabled={profile.meQuery.isLoading || accountMissing}
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" defaultValue="john@example.com" />
+                    <Input id="email" type="email" value={me?.email ?? ""} disabled readOnly />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="telegram">Telegram Username</Label>
-                    <Input id="telegram" defaultValue="@johndoe" />
+                    <Input
+                      id="telegram"
+                      value={telegramUsername}
+                      onChange={(event) => setTelegramUsername(event.target.value)}
+                      disabled={profile.meQuery.isLoading || accountMissing}
+                    />
                   </div>
-                  <Button className="w-full sm:w-auto">Save Changes</Button>
+                  <Button
+                    className="w-full sm:w-auto"
+                    onClick={handleProfileSave}
+                    disabled={profile.updateMeMutation.isPending || accountMissing}
+                  >
+                    Save Changes
+                  </Button>
                 </CardContent>
               </Card>
 
-              {/* Security Settings */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -207,31 +452,30 @@ export default function AccountPage() {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="currentPassword">Current Password</Label>
-                    <Input id="currentPassword" type="password" />
+                    <Input id="currentPassword" type="password" disabled />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="newPassword">New Password</Label>
-                    <Input id="newPassword" type="password" />
+                    <Input id="newPassword" type="password" disabled />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword">Confirm Password</Label>
-                    <Input id="confirmPassword" type="password" />
+                    <Input id="confirmPassword" type="password" disabled />
                   </div>
                   <Separator />
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <Label>Two-Factor Authentication</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Add an extra layer of security
-                      </p>
+                      <p className="text-sm text-muted-foreground">Backend endpoint is not available yet</p>
                     </div>
-                    <Switch />
+                    <Switch disabled />
                   </div>
-                  <Button className="w-full sm:w-auto">Update Password</Button>
+                  <Button className="w-full sm:w-auto" disabled>
+                    Not Available Yet
+                  </Button>
                 </CardContent>
               </Card>
 
-              {/* Notification Preferences */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -241,46 +485,61 @@ export default function AccountPage() {
                   <CardDescription>Configure notification preferences</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {profile.notificationsQuery.isError && (
+                    <p className="text-sm text-destructive">
+                      {getErrorMessage(profile.notificationsQuery.error, "Failed to load notifications.")}
+                    </p>
+                  )}
                   <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Email Notifications</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Receive updates via email
-                      </p>
-                    </div>
-                    <Switch defaultChecked />
+                    <Label>Email Notifications</Label>
+                    <Switch
+                      checked={emailNotifications}
+                      onCheckedChange={setEmailNotifications}
+                      disabled={profile.notificationsQuery.isLoading || accountMissing}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Telegram Bot Alerts</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Get notified via Telegram
-                      </p>
-                    </div>
-                    <Switch defaultChecked />
+                    <Label>Telegram Bot Alerts</Label>
+                    <Switch
+                      checked={telegramBotAlerts}
+                      onCheckedChange={setTelegramBotAlerts}
+                      disabled={profile.notificationsQuery.isLoading || accountMissing}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Weekly Reports</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Receive weekly analytics digest
-                      </p>
-                    </div>
-                    <Switch />
+                    <Label>Weekly Reports</Label>
+                    <Switch
+                      checked={weeklyReports}
+                      onCheckedChange={setWeeklyReports}
+                      disabled={profile.notificationsQuery.isLoading || accountMissing}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Marketing Updates</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Product news and offers
-                      </p>
-                    </div>
-                    <Switch />
+                    <Label>Marketing Updates</Label>
+                    <Switch
+                      checked={marketingUpdates}
+                      onCheckedChange={setMarketingUpdates}
+                      disabled={profile.notificationsQuery.isLoading || accountMissing}
+                    />
                   </div>
+                  <div className="flex items-center justify-between">
+                    <Label>Push Notifications</Label>
+                    <Switch
+                      checked={pushNotifications}
+                      onCheckedChange={setPushNotifications}
+                      disabled={profile.notificationsQuery.isLoading || accountMissing}
+                    />
+                  </div>
+                  <Button
+                    className="w-full sm:w-auto"
+                    onClick={handleNotificationsSave}
+                    disabled={profile.updateNotificationsMutation.isPending || accountMissing}
+                  >
+                    Save Notifications
+                  </Button>
                 </CardContent>
               </Card>
 
-              {/* Preferences */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -290,9 +549,18 @@ export default function AccountPage() {
                   <CardDescription>Customize your experience</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {profile.preferencesQuery.isError && (
+                    <p className="text-sm text-destructive">
+                      {getErrorMessage(profile.preferencesQuery.error, "Failed to load preferences.")}
+                    </p>
+                  )}
                   <div className="space-y-2">
                     <Label>Language</Label>
-                    <Select defaultValue="en">
+                    <Select
+                      value={languageCode}
+                      onValueChange={setLanguageCode}
+                      disabled={profile.preferencesQuery.isLoading || accountMissing}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -307,218 +575,75 @@ export default function AccountPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Timezone</Label>
-                    <Select defaultValue="utc">
+                    <Input
+                      value={timezone}
+                      onChange={(event) => setTimezone(event.target.value)}
+                      disabled={profile.preferencesQuery.isLoading || accountMissing}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Theme</Label>
+                    <Select
+                      value={theme}
+                      onValueChange={(value) => setTheme(value as ThemeValue)}
+                      disabled={profile.preferencesQuery.isLoading || accountMissing}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="utc">UTC</SelectItem>
-                        <SelectItem value="est">Eastern Time (EST)</SelectItem>
-                        <SelectItem value="pst">Pacific Time (PST)</SelectItem>
-                        <SelectItem value="cet">Central European (CET)</SelectItem>
+                        <SelectItem value="system">System</SelectItem>
+                        <SelectItem value="light">Light</SelectItem>
+                        <SelectItem value="dark">Dark</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Dark Mode</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Use dark theme
-                      </p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
+                  <Button
+                    className="w-full sm:w-auto"
+                    onClick={handlePreferencesSave}
+                    disabled={profile.updatePreferencesMutation.isPending || accountMissing}
+                  >
+                    Save Preferences
+                  </Button>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
-          {/* My Channels Tab */}
           <TabsContent value="channels" className="space-y-6">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>My Channels</CardTitle>
-                  <CardDescription>
-                    Manage your Telegram channels and verification status
-                  </CardDescription>
-                </div>
-                <Button className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Add Channel
-                </Button>
+              <CardHeader>
+                <CardTitle>My Channels</CardTitle>
+                <CardDescription>
+                  Channel management is unchanged in this rollout and remains available in the dedicated channel pages.
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {mockChannels.map((channel) => (
-                    <div
-                      key={channel.id}
-                      className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/5 transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
-                          {channel.avatar}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{channel.name}</span>
-                            {channel.verified && (
-                              <BadgeCheck className="w-5 h-5 text-primary" />
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {channel.username} • {channel.subscribers.toLocaleString()} subscribers
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {channel.verified ? (
-                          <Badge className="bg-primary/10 text-primary border-0">
-                            <Check className="w-3 h-3 mr-1" />
-                            Verified
-                          </Badge>
-                        ) : (
-                          <Dialog open={verifyDialogOpen} onOpenChange={setVerifyDialogOpen}>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                Verify Channel
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Verify Channel Ownership</DialogTitle>
-                                <DialogDescription>
-                                  Follow these steps to verify your channel ownership
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                  <h4 className="font-medium">Step 1: Add Verification Code</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    Add the following code to your channel description temporarily:
-                                  </p>
-                                  <div className="flex items-center gap-2">
-                                    <code className="flex-1 p-2 bg-muted rounded text-sm">
-                                      telemetrio-verify-abc123xyz
-                                    </code>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => copyToClipboard("telemetrio-verify-abc123xyz")}
-                                    >
-                                      <Copy className="w-4 h-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <h4 className="font-medium">Step 2: Add Analytics Bot</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    Add @TelemetrioBot as an admin to enable advanced analytics
-                                  </p>
-                                  <Button variant="outline" className="w-full">
-                                    Open Bot in Telegram
-                                  </Button>
-                                </div>
-                                <div className="space-y-2">
-                                  <h4 className="font-medium">Verification Benefits</h4>
-                                  <ul className="text-sm text-muted-foreground space-y-1">
-                                    <li className="flex items-center gap-2">
-                                      <Check className="w-4 h-4 text-primary" />
-                                      Verified badge on your channel
-                                    </li>
-                                    <li className="flex items-center gap-2">
-                                      <Check className="w-4 h-4 text-primary" />
-                                      Advanced audience demographics
-                                    </li>
-                                    <li className="flex items-center gap-2">
-                                      <Check className="w-4 h-4 text-primary" />
-                                      Invite link analytics
-                                    </li>
-                                    <li className="flex items-center gap-2">
-                                      <Check className="w-4 h-4 text-primary" />
-                                      Ad effectiveness reports
-                                    </li>
-                                  </ul>
-                                </div>
-                              </div>
-                              <DialogFooter>
-                                <Button variant="outline" onClick={() => setVerifyDialogOpen(false)}>
-                                  Cancel
-                                </Button>
-                                <Button onClick={() => {
-                                  toast({ title: "Verification Started", description: "We're checking your channel..." });
-                                  setVerifyDialogOpen(false);
-                                }}>
-                                  Verify Now
-                                </Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                        )}
-                        <Button variant="ghost" size="sm">
-                          <BarChart3 className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Settings className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  This tab is intentionally non-blocking while account profile, team, API keys, and billing use live endpoints.
+                </p>
               </CardContent>
             </Card>
-
-            {/* Channel Insights Card */}
-            <div className="grid gap-6 md:grid-cols-3">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>Total Subscribers</CardDescription>
-                  <CardTitle className="text-3xl">259K</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    <span className="text-green-500">+12.5%</span> from last month
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>Total Views</CardDescription>
-                  <CardTitle className="text-3xl">1.2M</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    <span className="text-green-500">+8.3%</span> from last month
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>Avg. Engagement Rate</CardDescription>
-                  <CardTitle className="text-3xl">4.8%</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    <span className="text-green-500">+0.3%</span> from last month
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
           </TabsContent>
 
-          {/* API Keys Tab */}
           <TabsContent value="api" className="space-y-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>API Keys</CardTitle>
-                  <CardDescription>
-                    Manage your API keys for programmatic access
-                  </CardDescription>
+                  <CardDescription>Manage your API keys for programmatic access</CardDescription>
                 </div>
-                <Dialog open={addApiKeyDialogOpen} onOpenChange={setAddApiKeyDialogOpen}>
+                <Dialog
+                  open={addApiKeyDialogOpen}
+                  onOpenChange={(open) => {
+                    setAddApiKeyDialogOpen(open);
+                    if (!open) {
+                      setCreatedSecret(null);
+                    }
+                  }}
+                >
                   <DialogTrigger asChild>
-                    <Button className="gap-2">
+                    <Button className="gap-2" disabled={accountMissing}>
                       <Plus className="w-4 h-4" />
                       Create API Key
                     </Button>
@@ -526,35 +651,33 @@ export default function AccountPage() {
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Create New API Key</DialogTitle>
-                      <DialogDescription>
-                        Generate a new API key for accessing Telemetrio data
-                      </DialogDescription>
+                      <DialogDescription>Generate a new API key for API access.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
                         <Label htmlFor="keyName">Key Name</Label>
-                        <Input id="keyName" placeholder="e.g., Production API" />
+                        <Input id="keyName" value={apiKeyName} onChange={(event) => setApiKeyName(event.target.value)} />
                       </div>
                       <div className="space-y-2">
                         <Label>Permissions</Label>
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <Label className="font-normal">Read channel data</Label>
-                            <Switch defaultChecked />
+                            <Switch checked={scopeReadChannels} onCheckedChange={setScopeReadChannels} />
                           </div>
                           <div className="flex items-center justify-between">
                             <Label className="font-normal">Read advertising data</Label>
-                            <Switch defaultChecked />
+                            <Switch checked={scopeReadAds} onCheckedChange={setScopeReadAds} />
                           </div>
                           <div className="flex items-center justify-between">
                             <Label className="font-normal">Export data</Label>
-                            <Switch />
+                            <Switch checked={scopeExport} onCheckedChange={setScopeExport} />
                           </div>
                         </div>
                       </div>
                       <div className="space-y-2">
                         <Label>Rate Limit</Label>
-                        <Select defaultValue="1000">
+                        <Select value={rateLimit} onValueChange={setRateLimit}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -565,15 +688,25 @@ export default function AccountPage() {
                           </SelectContent>
                         </Select>
                       </div>
+                      {createdSecret && (
+                        <div className="rounded-lg border p-3 bg-muted/50 space-y-2">
+                          <p className="text-sm font-medium">Secret (shown once)</p>
+                          <code className="block text-xs break-all">{createdSecret}</code>
+                          <Button variant="outline" size="sm" onClick={() => copyToClipboard(createdSecret, "API key secret")}>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Copy Secret
+                          </Button>
+                        </div>
+                      )}
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setAddApiKeyDialogOpen(false)}>
-                        Cancel
+                        Close
                       </Button>
-                      <Button onClick={() => {
-                        toast({ title: "API Key Created", description: "Your new API key is ready to use" });
-                        setAddApiKeyDialogOpen(false);
-                      }}>
+                      <Button
+                        onClick={handleCreateApiKey}
+                        disabled={api.createApiKeyMutation.isPending || !apiKeyName.trim() || accountMissing}
+                      >
                         Create Key
                       </Button>
                     </DialogFooter>
@@ -581,106 +714,78 @@ export default function AccountPage() {
                 </Dialog>
               </CardHeader>
               <CardContent>
+                {api.apiKeysQuery.isError && (
+                  <p className="mb-4 text-sm text-destructive">{getErrorMessage(api.apiKeysQuery.error, "Failed to load API keys.")}</p>
+                )}
+
                 <div className="space-y-4">
-                  {mockApiKeys.map((apiKey) => (
-                    <div
-                      key={apiKey.id}
-                      className="flex items-center justify-between p-4 rounded-lg border bg-card"
-                    >
+                  {apiKeys.map((apiKey) => (
+                    <div key={apiKey.api_key_id} className="flex items-center justify-between p-4 rounded-lg border bg-card">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <Key className="w-4 h-4 text-primary" />
                           <span className="font-semibold">{apiKey.name}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <code className="text-sm text-muted-foreground font-mono">
-                            {showApiKey === apiKey.id
-                              ? apiKey.key
-                              : apiKey.key.slice(0, 12) + "•".repeat(20)}
-                          </code>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={() => setShowApiKey(showApiKey === apiKey.id ? null : apiKey.id)}
-                          >
-                            {showApiKey === apiKey.id ? (
-                              <EyeOff className="w-3 h-3" />
-                            ) : (
-                              <Eye className="w-3 h-3" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={() => copyToClipboard(apiKey.key)}
-                          >
-                            <Copy className="w-3 h-3" />
-                          </Button>
-                        </div>
                         <p className="text-xs text-muted-foreground">
-                          Created {apiKey.created} • Last used {apiKey.lastUsed} • {apiKey.requests.toLocaleString()} requests
+                          Prefix {apiKey.key_prefix} • Created {formatDate(apiKey.created_at)} • Last used {formatDateTime(apiKey.last_used_at)}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm">
-                          <RefreshCw className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleRevokeApiKey(apiKey.api_key_id, apiKey.name)}
+                          disabled={api.revokeApiKeyMutation.isPending || accountMissing}
+                          aria-label={`Revoke ${apiKey.name}`}
+                        >
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
                   ))}
+                  {!api.apiKeysQuery.isLoading && apiKeys.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No active API keys.</p>
+                  )}
                 </div>
 
-                {/* API Usage Stats */}
                 <div className="mt-6 p-4 rounded-lg bg-muted/50">
-                  <h4 className="font-medium mb-2">API Usage This Month</h4>
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <div>
-                      <p className="text-2xl font-bold">18,670</p>
-                      <p className="text-sm text-muted-foreground">Total Requests</p>
+                  <h4 className="font-medium mb-2">API Usage ({api.from} to {api.to})</h4>
+                  {api.apiUsageQuery.isError ? (
+                    <p className="text-sm text-destructive">{getErrorMessage(api.apiUsageQuery.error, "Failed to load usage metrics.")}</p>
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <div>
+                        <p className="text-2xl font-bold">{apiUsage?.total_requests?.toLocaleString() ?? "-"}</p>
+                        <p className="text-sm text-muted-foreground">Total Requests</p>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold">{successRate !== null ? `${successRate.toFixed(1)}%` : "-"}</p>
+                        <p className="text-sm text-muted-foreground">Success Rate</p>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold">
+                          {typeof apiUsage?.avg_latency_ms === "number" ? `${apiUsage.avg_latency_ms.toFixed(1)}ms` : "-"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">Avg. Response Time</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-2xl font-bold">99.9%</p>
-                      <p className="text-sm text-muted-foreground">Success Rate</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold">124ms</p>
-                      <p className="text-sm text-muted-foreground">Avg. Response Time</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* API Documentation Link */}
-                <div className="mt-4 flex items-center justify-between p-4 rounded-lg border">
-                  <div>
-                    <h4 className="font-medium">API Documentation</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Learn how to integrate with our REST API
-                    </p>
-                  </div>
-                  <Button variant="outline">View Docs</Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Team Tab */}
           <TabsContent value="team" className="space-y-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>Team Members</CardTitle>
-                  <CardDescription>
-                    Manage who has access to your channels and data
-                  </CardDescription>
+                  <CardDescription>Manage who has access to your account</CardDescription>
                 </div>
                 <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="gap-2">
+                    <Button className="gap-2" disabled={accountMissing}>
                       <Plus className="w-4 h-4" />
                       Invite Member
                     </Button>
@@ -688,48 +793,41 @@ export default function AccountPage() {
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Invite Team Member</DialogTitle>
-                      <DialogDescription>
-                        Add a new member to your team
-                      </DialogDescription>
+                      <DialogDescription>Add a new member to your account</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
                         <Label htmlFor="inviteEmail">Email Address</Label>
-                        <Input id="inviteEmail" type="email" placeholder="colleague@example.com" />
+                        <Input
+                          id="inviteEmail"
+                          type="email"
+                          placeholder="colleague@example.com"
+                          value={inviteEmail}
+                          onChange={(event) => setInviteEmail(event.target.value)}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label>Role</Label>
-                        <Select defaultValue="viewer">
+                        <Select value={inviteRole} onValueChange={setInviteRole}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="admin">Admin - Full access</SelectItem>
-                            <SelectItem value="editor">Editor - Can edit channels</SelectItem>
-                            <SelectItem value="viewer">Viewer - Read-only access</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="editor">Editor</SelectItem>
+                            <SelectItem value="viewer">Viewer</SelectItem>
                           </SelectContent>
                         </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Channel Access</Label>
-                        <div className="space-y-2">
-                          {mockChannels.map((channel) => (
-                            <div key={channel.id} className="flex items-center justify-between">
-                              <Label className="font-normal">{channel.name}</Label>
-                              <Switch defaultChecked />
-                            </div>
-                          ))}
-                        </div>
                       </div>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>
                         Cancel
                       </Button>
-                      <Button onClick={() => {
-                        toast({ title: "Invitation Sent", description: "An email has been sent to the team member" });
-                        setInviteDialogOpen(false);
-                      }}>
+                      <Button
+                        onClick={handleInviteMember}
+                        disabled={team.inviteMemberMutation.isPending || !inviteEmail.trim() || accountMissing}
+                      >
                         Send Invite
                       </Button>
                     </DialogFooter>
@@ -737,197 +835,208 @@ export default function AccountPage() {
                 </Dialog>
               </CardHeader>
               <CardContent>
+                {team.teamQuery.isError && (
+                  <p className="mb-4 text-sm text-destructive">{getErrorMessage(team.teamQuery.error, "Failed to load team members.")}</p>
+                )}
+
                 <div className="space-y-4">
-                  {mockTeamMembers.map((member) => (
-                    <div
-                      key={member.id}
-                      className="flex items-center justify-between p-4 rounded-lg border bg-card"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                          {member.avatar}
+                  {teamMembers.map((member) => {
+                    const fullName = [member.first_name, member.last_name].filter(Boolean).join(" ").trim();
+                    const label = fullName || member.email;
+
+                    return (
+                      <div key={member.member_id} className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+                            {initials(member.first_name, member.last_name)}
+                          </div>
+                          <div>
+                            <p className="font-semibold">{label}</p>
+                            <p className="text-sm text-muted-foreground">{member.email}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-semibold">{member.name}</p>
-                          <p className="text-sm text-muted-foreground">{member.email}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <Badge variant={member.role === "Owner" ? "default" : "secondary"}>
-                          {member.role}
-                        </Badge>
-                        {member.role !== "Owner" && (
-                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                        <div className="flex items-center gap-4">
+                          <Badge variant="secondary">{member.role}</Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleRemoveMember(member.member_id, label)}
+                            disabled={team.removeMemberMutation.isPending || accountMissing}
+                            aria-label={`Remove ${label}`}
+                          >
                             <X className="w-4 h-4" />
                           </Button>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
+                  {!team.teamQuery.isLoading && teamMembers.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No members found.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Billing Tab */}
           <TabsContent value="billing" className="space-y-6">
             <div className="grid gap-6 lg:grid-cols-2">
-              {/* Current Plan */}
               <Card>
                 <CardHeader>
                   <CardTitle>Current Plan</CardTitle>
                   <CardDescription>Manage your subscription</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="p-4 rounded-lg border-2 border-primary bg-primary/5">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-xl font-bold">Pro Plan</h3>
-                      <Badge className="bg-primary">Active</Badge>
-                    </div>
-                    <p className="text-3xl font-bold">
-                      $49<span className="text-lg font-normal text-muted-foreground">/month</span>
+                  {billing.subscriptionQuery.isError && (
+                    <p className="text-sm text-destructive">
+                      {getErrorMessage(billing.subscriptionQuery.error, "Failed to load subscription.")}
                     </p>
-                    <ul className="mt-4 space-y-2 text-sm">
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-primary" />
-                        Unlimited channel searches
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-primary" />
-                        50 event trackers
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-primary" />
-                        API access (10K requests/month)
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-primary" />
-                        CSV/Excel exports
-                      </li>
-                    </ul>
+                  )}
+                  <div className="space-y-2">
+                    <Label>Plan Code</Label>
+                    <Input value={planCode} onChange={(event) => setPlanCode(event.target.value)} disabled={accountMissing} />
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" className="flex-1">
-                      Change Plan
-                    </Button>
-                    <Button variant="outline" className="text-destructive hover:text-destructive">
-                      Cancel
-                    </Button>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Cancel at period end</p>
+                      <p className="text-sm text-muted-foreground">
+                        Current period ends {formatDate(subscription?.current_period_end)}
+                      </p>
+                    </div>
+                    <Switch checked={cancelAtPeriodEnd} onCheckedChange={setCancelAtPeriodEnd} disabled={accountMissing} />
                   </div>
+                  <Button
+                    onClick={handleSaveSubscription}
+                    disabled={billing.updateSubscriptionMutation.isPending || accountMissing}
+                  >
+                    Save Subscription
+                  </Button>
                 </CardContent>
               </Card>
 
-              {/* Usage */}
               <Card>
                 <CardHeader>
                   <CardTitle>Usage This Month</CardTitle>
-                  <CardDescription>Your current usage statistics</CardDescription>
+                  <CardDescription>
+                    {billing.from} to {billing.to}
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Channel Searches</span>
-                      <span>2,450 / Unlimited</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full w-[45%] bg-primary rounded-full" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Event Trackers</span>
-                      <span>32 / 50</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full w-[64%] bg-primary rounded-full" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>API Requests</span>
-                      <span>8,230 / 10,000</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full w-[82%] bg-amber-500 rounded-full" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Data Exports</span>
-                      <span>15 / Unlimited</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full w-[25%] bg-primary rounded-full" />
-                    </div>
-                  </div>
+                <CardContent className="space-y-3">
+                  {billing.usageQuery.isError ? (
+                    <p className="text-sm text-destructive">{getErrorMessage(billing.usageQuery.error, "Failed to load usage.")}</p>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Channel Searches</span>
+                        <span>{usage?.channel_searches?.toLocaleString() ?? "-"}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Event Trackers</span>
+                        <span>{usage?.event_trackers_count?.toLocaleString() ?? "-"}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span>API Requests</span>
+                        <span>{usage?.api_requests_count?.toLocaleString() ?? "-"}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Exports</span>
+                        <span>{usage?.exports_count?.toLocaleString() ?? "-"}</span>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Payment Method */}
               <Card>
                 <CardHeader>
                   <CardTitle>Payment Method</CardTitle>
                   <CardDescription>Manage your payment details</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-4 rounded-lg border">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-8 rounded bg-gradient-to-r from-blue-600 to-blue-400 flex items-center justify-center text-white text-xs font-bold">
-                        VISA
+                  {billing.paymentMethodsQuery.isError && (
+                    <p className="text-sm text-destructive">
+                      {getErrorMessage(billing.paymentMethodsQuery.error, "Failed to load payment methods.")}
+                    </p>
+                  )}
+                  <div className="space-y-2">
+                    {billing.sortedPaymentMethods.map((method) => (
+                      <div key={method.payment_method_id} className="flex items-center justify-between p-4 rounded-lg border">
+                        <div>
+                          <p className="font-medium">
+                            {method.brand} •••• {method.last4}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Expires {method.exp_month}/{method.exp_year}
+                          </p>
+                        </div>
+                        {method.is_default && <Badge variant="secondary">Default</Badge>}
                       </div>
-                      <div>
-                        <p className="font-medium">•••• •••• •••• 4242</p>
-                        <p className="text-sm text-muted-foreground">Expires 12/25</p>
-                      </div>
-                    </div>
-                    <Badge variant="secondary">Default</Badge>
+                    ))}
+                    {!billing.paymentMethodsQuery.isLoading && billing.sortedPaymentMethods.length === 0 && (
+                      <p className="text-sm text-muted-foreground">No payment methods found.</p>
+                    )}
                   </div>
-                  <Button variant="outline" className="w-full gap-2">
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2"
+                    onClick={() => toast({ title: "Coming soon", description: "Payment method creation is not enabled yet." })}
+                    disabled={accountMissing}
+                  >
                     <Plus className="w-4 h-4" />
                     Add Payment Method
                   </Button>
                 </CardContent>
               </Card>
 
-              {/* Billing History */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
                     <CardTitle>Billing History</CardTitle>
                     <CardDescription>Your recent invoices</CardDescription>
                   </div>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Download className="w-4 h-4" />
-                    Export All
-                  </Button>
                 </CardHeader>
                 <CardContent>
+                  {billing.invoicesQuery.isError && (
+                    <p className="mb-4 text-sm text-destructive">{getErrorMessage(billing.invoicesQuery.error, "Failed to load invoices.")}</p>
+                  )}
                   <div className="space-y-2">
-                    {[
-                      { date: "Jan 1, 2024", amount: "$49.00", status: "Paid" },
-                      { date: "Dec 1, 2023", amount: "$49.00", status: "Paid" },
-                      { date: "Nov 1, 2023", amount: "$49.00", status: "Paid" },
-                    ].map((invoice, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between py-2 border-b last:border-0"
-                      >
+                    {invoices.map((invoice) => (
+                      <div key={invoice.invoice_id} className="flex items-center justify-between py-2 border-b last:border-0">
                         <div>
-                          <p className="font-medium">{invoice.date}</p>
-                          <p className="text-sm text-muted-foreground">Pro Plan</p>
+                          <p className="font-medium">{invoice.invoice_number}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {invoice.currency} {invoice.amount_total.toFixed(2)} • {invoice.period_start} to {invoice.period_end}
+                          </p>
                         </div>
                         <div className="flex items-center gap-4">
-                          <span className="font-medium">{invoice.amount}</span>
-                          <Badge variant="secondary" className="bg-green-500/10 text-green-500">
-                            {invoice.status}
-                          </Badge>
-                          <Button variant="ghost" size="sm">
+                          <Badge variant="secondary">{invoice.status}</Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadInvoice(invoice.invoice_id)}
+                            disabled={billing.invoiceDownloadMutation.isPending || accountMissing}
+                            aria-label={`Download ${invoice.invoice_number}`}
+                          >
                             <Download className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
                     ))}
+                    {!billing.invoicesQuery.isLoading && invoices.length === 0 && (
+                      <p className="text-sm text-muted-foreground">No invoices found.</p>
+                    )}
                   </div>
+
+                  {billing.invoicesQuery.hasNextPage && (
+                    <Button
+                      variant="outline"
+                      className="mt-4 w-full"
+                      onClick={() => billing.invoicesQuery.fetchNextPage()}
+                      disabled={billing.invoicesQuery.isFetchingNextPage || accountMissing}
+                    >
+                      {billing.invoicesQuery.isFetchingNextPage ? "Loading..." : "Load More"}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             </div>
