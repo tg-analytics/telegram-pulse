@@ -88,6 +88,20 @@ const SpyPage = () => {
   const [notifyTelegram, setNotifyTelegram] = useState(true);
   const [notifyEmail, setNotifyEmail] = useState(false);
 
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingTracker, setEditingTracker] = useState<Tracker | null>(null);
+  const [editNotifyPush, setEditNotifyPush] = useState(true);
+  const [editNotifyTelegram, setEditNotifyTelegram] = useState(true);
+  const [editNotifyEmail, setEditNotifyEmail] = useState(false);
+
+  const openEditDialog = (tracker: Tracker) => {
+    setEditingTracker(tracker);
+    setEditNotifyPush(tracker.notify_push);
+    setEditNotifyTelegram(tracker.notify_telegram);
+    setEditNotifyEmail(tracker.notify_email);
+    setEditDialogOpen(true);
+  };
+
   const trackersQuery = useTrackers(accountId);
   const mentionsQuery = useTrackerMentions(accountId, { limit: 50 });
 
@@ -147,6 +161,30 @@ const SpyPage = () => {
         description: message,
         variant: "destructive",
       });
+    },
+  });
+
+  const editTrackerMutation = useMutation({
+    mutationFn: async () => {
+      if (!accountId || !editingTracker) {
+        throw new Error("Account session or tracker is missing.");
+      }
+
+      return updateTracker(accountId, editingTracker.tracker_id, {
+        notify_push: editNotifyPush,
+        notify_telegram: editNotifyTelegram,
+        notify_email: editNotifyEmail,
+      });
+    },
+    onSuccess: async () => {
+      await invalidateSpyQueries();
+      setEditDialogOpen(false);
+      setEditingTracker(null);
+      toast({ title: "Tracker updated", description: "Notification settings saved." });
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "Failed to update tracker.";
+      toast({ title: "Update tracker failed", description: message, variant: "destructive" });
     },
   });
 
@@ -301,6 +339,67 @@ const SpyPage = () => {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Tracker</DialogTitle>
+                  <DialogDescription>
+                    Update notification settings for this tracker
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <Tabs value={editingTracker?.tracker_type ?? "keyword"}>
+                    <TabsList className="w-full">
+                      <TabsTrigger value="keyword" className="flex-1" disabled>
+                        <Hash className="w-4 h-4 mr-2" />
+                        Keyword
+                      </TabsTrigger>
+                      <TabsTrigger value="channel" className="flex-1" disabled>
+                        <AtSign className="w-4 h-4 mr-2" />
+                        Channel
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="keyword" className="pt-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-keyword">Keyword to track</Label>
+                        <Input id="edit-keyword" value={editingTracker?.tracker_value ?? ""} disabled />
+                      </div>
+                    </TabsContent>
+                    <TabsContent value="channel" className="pt-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-channel">Channel username</Label>
+                        <Input id="edit-channel" value={editingTracker?.tracker_value ?? ""} disabled />
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="edit-notify-push">Push notifications</Label>
+                    <Switch id="edit-notify-push" checked={editNotifyPush} onCheckedChange={setEditNotifyPush} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="edit-notify-telegram">Telegram bot alerts</Label>
+                    <Switch id="edit-notify-telegram" checked={editNotifyTelegram} onCheckedChange={setEditNotifyTelegram} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="edit-notify-email">Email notifications</Label>
+                    <Switch id="edit-notify-email" checked={editNotifyEmail} onCheckedChange={setEditNotifyEmail} />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    className="gradient-hero"
+                    onClick={() => editTrackerMutation.mutate()}
+                    disabled={editTrackerMutation.isPending}
+                  >
+                    {editTrackerMutation.isPending ? "Saving..." : "Save Changes"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </motion.div>
 
           {hasMissingAccount && (
@@ -363,7 +462,7 @@ const SpyPage = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem disabled>
+                            <DropdownMenuItem onClick={() => openEditDialog(tracker)}>
                               <Edit className="w-4 h-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
