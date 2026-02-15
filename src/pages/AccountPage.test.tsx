@@ -391,7 +391,7 @@ describe("AccountPage", () => {
         channel_id: "9f28253d-8ffd-4d2f-a67c-ebaf0f6ba2f2",
         alias_name: "Primary Tech Channel",
         monitoring_enabled: true,
-        is_favorite: true,
+        is_favorite: false,
       });
     });
   });

@@ -110,7 +110,6 @@ export default function AccountPage() {
   const [channelId, setChannelId] = useState("");
   const [aliasName, setAliasName] = useState("");
   const [monitoringEnabled, setMonitoringEnabled] = useState(true);
-  const [isFavorite, setIsFavorite] = useState(true);
 
   const [apiKeyName, setApiKeyName] = useState("");
   const [scopeReadChannels, setScopeReadChannels] = useState(true);
@@ -251,13 +250,12 @@ export default function AccountPage() {
         channel_id: channelId.trim(),
         alias_name: aliasName.trim(),
         monitoring_enabled: monitoringEnabled,
-        is_favorite: isFavorite,
+        is_favorite: false,
       });
 
       setChannelId("");
       setAliasName("");
       setMonitoringEnabled(true);
-      setIsFavorite(true);
       setAddChannelDialogOpen(false);
 
       toast({ title: "Channel added", description: "Channel has been connected to this account." });
@@ -661,7 +659,6 @@ export default function AccountPage() {
                       setChannelId("");
                       setAliasName("");
                       setMonitoringEnabled(true);
-                      setIsFavorite(true);
                     }
                   }}
                 >
@@ -702,10 +699,6 @@ export default function AccountPage() {
                           checked={monitoringEnabled}
                           onCheckedChange={setMonitoringEnabled}
                         />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="isFavorite">Favorite</Label>
-                        <Switch id="isFavorite" checked={isFavorite} onCheckedChange={setIsFavorite} />
                       </div>
                     </div>
                     <DialogFooter>
