@@ -47,9 +47,10 @@ export interface DataResponse<T> extends MetaResponse {
 }
 
 export interface TeamMember {
-  member_id: string;
+  id: string;
   user_id?: string | null;
-  email: string;
+  email?: string | null;
+  name?: string | null;
   first_name?: string | null;
   last_name?: string | null;
   role: string;
@@ -58,7 +59,10 @@ export interface TeamMember {
   joined_at?: string | null;
 }
 
-export interface TeamMembersResponse extends DataResponse<TeamMember[]> {}
+export interface TeamMembersResponse {
+  items: TeamMember[];
+  next_cursor: string | null;
+}
 
 export interface AccountChannel {
   account_id: string;
@@ -91,7 +95,18 @@ export interface AddAccountChannelPayload {
 export interface InviteMemberPayload {
   email: string;
   role: string;
-  channel_access: string[];
+}
+
+export interface InviteMemberResponse {
+  message: string;
+  email: string;
+  user_exists: boolean;
+  status: string;
+}
+
+export interface RemoveMemberResponse {
+  message: string;
+  id: string;
 }
 
 export interface ApiKey {
@@ -324,9 +339,15 @@ export async function updateNotifications(payload: Notifications): Promise<DataR
   );
 }
 
-export async function fetchMembers(accountId: string): Promise<TeamMembersResponse> {
-  const response = await fetch(`${API_BASE}/v1.0/accounts/${accountId}/members`, {
-    headers: getAccountHeaders(accountId),
+export async function fetchMembers(params: { limit?: number; cursor?: string } = {}): Promise<TeamMembersResponse> {
+  const search = new URLSearchParams();
+  search.set("limit", String(params.limit ?? 20));
+  if (params.cursor) {
+    search.set("cursor", params.cursor);
+  }
+
+  const response = await fetch(`${API_BASE}/v1.0/team_members?${search.toString()}`, {
+    headers: getBearerHeader(),
   });
 
   return parseJsonOrThrow<TeamMembersResponse>(response, `Failed to load team members (${response.status}).`);
@@ -371,28 +392,26 @@ export async function addAccountChannel(
   );
 }
 
-export async function inviteMember(accountId: string, payload: InviteMemberPayload): Promise<MetaResponse> {
-  const response = await fetch(`${API_BASE}/v1.0/accounts/${accountId}/members/invitations`, {
+export async function inviteMember(payload: InviteMemberPayload): Promise<InviteMemberResponse> {
+  const response = await fetch(`${API_BASE}/v1.0/team_members/invite`, {
     method: "POST",
     headers: {
-      ...getAccountHeaders(accountId),
+      ...getBearerHeader(),
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
   });
 
-  return parseJsonOrThrow<MetaResponse>(response, `Failed to invite member (${response.status}).`);
+  return parseJsonOrThrow<InviteMemberResponse>(response, `Failed to invite member (${response.status}).`);
 }
 
-export async function removeMember(accountId: string, memberId: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/v1.0/accounts/${accountId}/members/${memberId}`, {
+export async function removeMember(memberId: string): Promise<RemoveMemberResponse> {
+  const response = await fetch(`${API_BASE}/v1.0/team_members/${memberId}`, {
     method: "DELETE",
-    headers: getAccountHeaders(accountId),
+    headers: getBearerHeader(),
   });
 
-  if (!response.ok) {
-    throw new Error(await parseApiErrorMessage(response, `Failed to remove member (${response.status}).`));
-  }
+  return parseJsonOrThrow<RemoveMemberResponse>(response, `Failed to remove member (${response.status}).`);
 }
 
 export async function fetchApiKeys(accountId: string): Promise<ApiKeysResponse> {

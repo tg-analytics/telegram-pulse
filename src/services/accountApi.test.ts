@@ -63,19 +63,18 @@ describe("accountApi", () => {
 
   it("adds account headers for members endpoint", async () => {
     vi.mocked(global.fetch).mockResolvedValueOnce(
-      new Response(JSON.stringify({ data: [], meta: {} }), {
+      new Response(JSON.stringify({ items: [], next_cursor: null }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
     );
 
-    await fetchMembers("acc-1");
+    await fetchMembers();
 
     const [url, options] = vi.mocked(global.fetch).mock.calls[0];
-    expect(url).toBe(`${API_BASE}/v1.0/accounts/acc-1/members`);
+    expect(url).toBe(`${API_BASE}/v1.0/team_members?limit=20`);
     expect(options?.headers).toEqual({
       Authorization: "Bearer session-token",
-      "X-Account-Id": "acc-1",
     });
   });
 
@@ -228,6 +227,6 @@ describe("accountApi", () => {
       ),
     );
 
-    await expect(removeMember("acc-1", "m-1")).rejects.toThrow("Account owner cannot be removed.");
+    await expect(removeMember("m-1")).rejects.toThrow("Account owner cannot be removed.");
   });
 });

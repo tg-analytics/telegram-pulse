@@ -150,16 +150,18 @@ beforeEach(() => {
   useAccountTeamMock.mockReturnValue({
     teamQuery: {
       data: {
-        data: [
+        items: [
           {
-            member_id: "m-1",
+            id: "m-1",
             email: "member@example.com",
+            name: "Jane Smith",
             first_name: "Jane",
             last_name: "Smith",
             role: "admin",
-            status: "active",
+            status: "accepted",
           },
         ],
+        next_cursor: null,
       },
       isLoading: false,
       isError: false,
@@ -311,7 +313,6 @@ describe("AccountPage", () => {
       expect(inviteMemberMutateAsync).toHaveBeenCalledWith({
         email: "new@example.com",
         role: "viewer",
-        channel_access: [],
       });
     });
 

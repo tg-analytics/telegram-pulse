@@ -77,6 +77,14 @@ function initials(first?: string | null, last?: string | null) {
   return joined || "U";
 }
 
+function splitName(fullName?: string | null) {
+  if (!fullName) return { first: "", last: "" };
+  const trimmed = fullName.trim();
+  if (!trimmed) return { first: "", last: "" };
+  const [first = "", ...rest] = trimmed.split(/\s+/);
+  return { first, last: rest.join(" ") };
+}
+
 export default function AccountPage() {
   const { session } = useAuth();
   const accountId = session?.account_id;
@@ -230,7 +238,6 @@ export default function AccountPage() {
       await team.inviteMemberMutation.mutateAsync({
         email: inviteEmail.trim(),
         role: inviteRole,
-        channel_access: [],
       });
       setInviteEmail("");
       setInviteRole("viewer");
@@ -367,7 +374,7 @@ export default function AccountPage() {
 
   const accountMissing = !accountId;
 
-  const teamMembers = team.teamQuery.data?.data ?? [];
+  const teamMembers = team.teamQuery.data?.items ?? [];
   const channels = accountChannels.channels;
   const apiKeys = api.activeApiKeys;
   const subscription = billing.subscriptionQuery.data?.data;
@@ -1007,17 +1014,20 @@ export default function AccountPage() {
                 <div className="space-y-4">
                   {teamMembers.map((member) => {
                     const fullName = [member.first_name, member.last_name].filter(Boolean).join(" ").trim();
-                    const label = fullName || member.email;
+                    const label = fullName || member.name || member.email || member.user_id || "Unknown user";
+                    const parsed = splitName(member.name);
+                    const firstName = member.first_name || parsed.first;
+                    const lastName = member.last_name || parsed.last;
 
                     return (
-                      <div key={member.member_id} className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                      <div key={member.id} className="flex items-center justify-between p-4 rounded-lg border bg-card">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                            {initials(member.first_name, member.last_name)}
+                            {initials(firstName, lastName)}
                           </div>
                           <div>
                             <p className="font-semibold">{label}</p>
-                            <p className="text-sm text-muted-foreground">{member.email}</p>
+                            <p className="text-sm text-muted-foreground">{member.email || "No email provided"}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
@@ -1026,7 +1036,7 @@ export default function AccountPage() {
                             variant="ghost"
                             size="sm"
                             className="text-destructive hover:text-destructive"
-                            onClick={() => handleRemoveMember(member.member_id, label)}
+                            onClick={() => handleRemoveMember(member.id, label)}
                             disabled={team.removeMemberMutation.isPending || accountMissing}
                             aria-label={`Remove ${label}`}
                           >
