@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import type { BadgeProps } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -83,6 +84,25 @@ function splitName(fullName?: string | null) {
   if (!trimmed) return { first: "", last: "" };
   const [first = "", ...rest] = trimmed.split(/\s+/);
   return { first, last: rest.join(" ") };
+}
+
+function formatStatusLabel(status?: string | null) {
+  if (!status) return "Unknown";
+  return status
+    .split(/[_\s]+/)
+    .map((segment) => `${segment.charAt(0).toUpperCase()}${segment.slice(1).toLowerCase()}`)
+    .join(" ");
+}
+
+function getStatusBadgeVariant(status?: string | null): BadgeProps["variant"] {
+  switch (status) {
+    case "accepted":
+      return "default";
+    case "invited":
+      return "outline";
+    default:
+      return "secondary";
+  }
 }
 
 export default function AccountPage() {
@@ -1018,6 +1038,8 @@ export default function AccountPage() {
                     const parsed = splitName(member.name);
                     const firstName = member.first_name || parsed.first;
                     const lastName = member.last_name || parsed.last;
+                    const statusLabel = formatStatusLabel(member.status);
+                    const statusVariant = getStatusBadgeVariant(member.status);
 
                     return (
                       <div key={member.id} className="flex items-center justify-between p-4 rounded-lg border bg-card">
@@ -1032,6 +1054,7 @@ export default function AccountPage() {
                         </div>
                         <div className="flex items-center gap-4">
                           <Badge variant="secondary">{member.role}</Badge>
+                          <Badge variant={statusVariant}>{statusLabel}</Badge>
                           <Button
                             variant="ghost"
                             size="sm"
