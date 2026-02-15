@@ -88,6 +88,7 @@ export default function AccountPage() {
   const accountChannels = useAccountChannels(accountId);
 
   const [addApiKeyDialogOpen, setAddApiKeyDialogOpen] = useState(false);
+  const [addChannelDialogOpen, setAddChannelDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   const [firstName, setFirstName] = useState("");
@@ -106,6 +107,10 @@ export default function AccountPage() {
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("viewer");
+  const [channelId, setChannelId] = useState("");
+  const [aliasName, setAliasName] = useState("");
+  const [monitoringEnabled, setMonitoringEnabled] = useState(true);
+  const [isFavorite, setIsFavorite] = useState(true);
 
   const [apiKeyName, setApiKeyName] = useState("");
   const [scopeReadChannels, setScopeReadChannels] = useState(true);
@@ -235,6 +240,31 @@ export default function AccountPage() {
       toast({
         title: "Invite failed",
         description: getErrorMessage(error, "Could not send team invitation."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddChannel = async () => {
+    try {
+      await accountChannels.addChannelMutation.mutateAsync({
+        channel_id: channelId.trim(),
+        alias_name: aliasName.trim(),
+        monitoring_enabled: monitoringEnabled,
+        is_favorite: isFavorite,
+      });
+
+      setChannelId("");
+      setAliasName("");
+      setMonitoringEnabled(true);
+      setIsFavorite(true);
+      setAddChannelDialogOpen(false);
+
+      toast({ title: "Channel added", description: "Channel has been connected to this account." });
+    } catch (error) {
+      toast({
+        title: "Add channel failed",
+        description: getErrorMessage(error, "Could not add channel."),
         variant: "destructive",
       });
     }
@@ -616,11 +646,81 @@ export default function AccountPage() {
 
           <TabsContent value="channels" className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>My Channels</CardTitle>
-                <CardDescription>
-                  Connected channels for this account with verification and monitoring status.
-                </CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>My Channels</CardTitle>
+                  <CardDescription>
+                    Connected channels for this account with verification and monitoring status.
+                  </CardDescription>
+                </div>
+                <Dialog
+                  open={addChannelDialogOpen}
+                  onOpenChange={(open) => {
+                    setAddChannelDialogOpen(open);
+                    if (!open) {
+                      setChannelId("");
+                      setAliasName("");
+                      setMonitoringEnabled(true);
+                      setIsFavorite(true);
+                    }
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <Button className="gap-2" disabled={accountMissing}>
+                      <Plus className="w-4 h-4" />
+                      Add Channel
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add Channel</DialogTitle>
+                      <DialogDescription>Connect a channel to this account.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="channelId">Channel ID</Label>
+                        <Input
+                          id="channelId"
+                          value={channelId}
+                          onChange={(event) => setChannelId(event.target.value)}
+                          placeholder="9f28253d-8ffd-4d2f-a67c-ebaf0f6ba2f2"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="aliasName">Alias Name</Label>
+                        <Input
+                          id="aliasName"
+                          value={aliasName}
+                          onChange={(event) => setAliasName(event.target.value)}
+                          placeholder="Primary Tech Channel"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="monitoringEnabled">Monitoring enabled</Label>
+                        <Switch
+                          id="monitoringEnabled"
+                          checked={monitoringEnabled}
+                          onCheckedChange={setMonitoringEnabled}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="isFavorite">Favorite</Label>
+                        <Switch id="isFavorite" checked={isFavorite} onCheckedChange={setIsFavorite} />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setAddChannelDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleAddChannel}
+                        disabled={accountChannels.addChannelMutation.isPending || !channelId.trim() || accountMissing}
+                      >
+                        Connect Channel
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent className="space-y-4">
                 {accountChannels.channelsQuery.isLoading && (

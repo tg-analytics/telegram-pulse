@@ -80,6 +80,13 @@ export interface AccountChannelsResponse extends MetaResponse {
   page: AccountChannelsPage;
 }
 
+export interface AddAccountChannelPayload {
+  channel_id: string;
+  alias_name: string;
+  monitoring_enabled: boolean;
+  is_favorite: boolean;
+}
+
 export interface InviteMemberPayload {
   email: string;
   role: string;
@@ -341,6 +348,25 @@ export async function fetchAccountChannels(
   return parseJsonOrThrow<AccountChannelsResponse>(
     response,
     `Failed to load account channels (${response.status}).`,
+  );
+}
+
+export async function addAccountChannel(
+  accountId: string,
+  payload: AddAccountChannelPayload,
+): Promise<DataResponse<AccountChannel>> {
+  const response = await fetch(`${API_BASE}/v1.0/accounts/${accountId}/channels`, {
+    method: "POST",
+    headers: {
+      ...getAccountHeaders(accountId),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJsonOrThrow<DataResponse<AccountChannel>>(
+    response,
+    `Failed to add account channel (${response.status}).`,
   );
 }
 

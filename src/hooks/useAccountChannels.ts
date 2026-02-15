@@ -1,8 +1,10 @@
 import { useMemo } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { fetchAccountChannels } from "@/services/accountApi";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { addAccountChannel, fetchAccountChannels, type AddAccountChannelPayload } from "@/services/accountApi";
 
 export function useAccountChannels(accountId?: string) {
+  const queryClient = useQueryClient();
+
   const channelsQuery = useInfiniteQuery({
     queryKey: ["account", "channels", accountId],
     queryFn: ({ pageParam }) =>
@@ -21,9 +23,17 @@ export function useAccountChannels(accountId?: string) {
     [channelsQuery.data?.pages],
   );
 
+  const addChannelMutation = useMutation({
+    mutationFn: (payload: AddAccountChannelPayload) => addAccountChannel(accountId as string, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["account", "channels", accountId] });
+    },
+  });
+
   return {
     channels,
     channelsQuery,
+    addChannelMutation,
     hasNextPage: channelsQuery.hasNextPage,
     isFetchingNextPage: channelsQuery.isFetchingNextPage,
     fetchNextPage: channelsQuery.fetchNextPage,
