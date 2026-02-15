@@ -148,6 +148,18 @@ export async function createTracker(accountId: string, payload: CreateTrackerPay
   return response.json();
 }
 
+export async function fetchTracker(accountId: string, trackerId: string): Promise<TrackerResponse> {
+  const response = await fetch(`${API_BASE}/v1.0/accounts/${accountId}/trackers/${trackerId}`, {
+    headers: getTrackerAuthHeaders(accountId),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiErrorMessage(response, `API error: ${response.status}`));
+  }
+
+  return response.json();
+}
+
 export async function updateTracker(
   accountId: string,
   trackerId: string,

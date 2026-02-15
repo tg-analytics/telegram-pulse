@@ -10,6 +10,7 @@ const useTrackerMentionsMock = vi.fn();
 const toastMock = vi.fn();
 
 const createTrackerMock = vi.fn();
+const fetchTrackerMock = vi.fn();
 const updateTrackerMock = vi.fn();
 const deleteTrackerMock = vi.fn();
 
@@ -38,6 +39,7 @@ vi.mock("@/services/trackersApi", async () => {
   return {
     ...actual,
     createTracker: (...args: unknown[]) => createTrackerMock(...args),
+    fetchTracker: (...args: unknown[]) => fetchTrackerMock(...args),
     updateTracker: (...args: unknown[]) => updateTrackerMock(...args),
     deleteTracker: (...args: unknown[]) => deleteTrackerMock(...args),
   };
@@ -157,6 +159,21 @@ beforeEach(() => {
   });
 
   createTrackerMock.mockResolvedValue({ data: { tracker_id: "t-3" }, meta: {} });
+  fetchTrackerMock.mockResolvedValue({
+    data: {
+      tracker_id: "t-1",
+      account_id: "acc-1",
+      tracker_type: "keyword",
+      tracker_value: "bitcoin price",
+      status: "active",
+      mentions_count: 12,
+      last_activity_at: "2026-02-14T20:11:00Z",
+      notify_push: true,
+      notify_telegram: true,
+      notify_email: false,
+    },
+    meta: {},
+  });
   updateTrackerMock.mockResolvedValue({ data: { tracker_id: "t-1", status: "paused" }, meta: {} });
   deleteTrackerMock.mockResolvedValue(undefined);
 });
@@ -185,6 +202,16 @@ describe("SpyPage", () => {
 
     await waitFor(() => {
       expect(updateTrackerMock).toHaveBeenCalledWith("acc-1", "t-1", { status: "paused" });
+    });
+  });
+
+  it("loads tracker by id before opening edit dialog", async () => {
+    renderPage();
+
+    fireEvent.click(screen.getAllByRole("button", { name: /edit/i })[0]);
+
+    await waitFor(() => {
+      expect(fetchTrackerMock).toHaveBeenCalledWith("acc-1", "t-1");
     });
   });
 

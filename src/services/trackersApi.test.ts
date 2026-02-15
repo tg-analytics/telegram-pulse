@@ -3,6 +3,7 @@ import { API_BASE } from "@/config/api";
 import {
   createTracker,
   deleteTracker,
+  fetchTracker,
   fetchTrackerMentions,
   fetchTrackers,
   updateTracker,
@@ -145,6 +146,39 @@ describe("trackersApi", () => {
     await expect(updateTracker("acc-1", "t-1", { status: "active" })).rejects.toThrow(
       "Insufficient permissions to update tracker.",
     );
+  });
+
+  it("fetches tracker by id and surfaces not-found errors", async () => {
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: { tracker_id: "t-1" },
+            meta: {},
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ detail: "Tracker not found." }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+    await expect(fetchTracker("acc-1", "t-1")).resolves.toEqual({
+      data: { tracker_id: "t-1" },
+      meta: {},
+    });
+
+    const [url, options] = vi.mocked(global.fetch).mock.calls[0];
+    expect(url).toBe(`${API_BASE}/v1.0/accounts/acc-1/trackers/t-1`);
+    expect(options?.method).toBeUndefined();
+
+    await expect(fetchTracker("acc-1", "missing")).rejects.toThrow("Tracker not found.");
   });
 
   it("deletes tracker and handles not-found errors", async () => {

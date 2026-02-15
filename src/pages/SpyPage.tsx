@@ -43,6 +43,7 @@ import { useTrackers } from "@/hooks/useTrackers";
 import { useTrackerMentions } from "@/hooks/useTrackerMentions";
 import {
   createTracker,
+  fetchTracker,
   deleteTracker,
   updateTracker,
   type Tracker,
@@ -90,16 +91,46 @@ const SpyPage = () => {
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingTracker, setEditingTracker] = useState<Tracker | null>(null);
+  const [editLoadingTrackerId, setEditLoadingTrackerId] = useState<string | null>(null);
   const [editNotifyPush, setEditNotifyPush] = useState(true);
   const [editNotifyTelegram, setEditNotifyTelegram] = useState(true);
   const [editNotifyEmail, setEditNotifyEmail] = useState(false);
 
-  const openEditDialog = (tracker: Tracker) => {
-    setEditingTracker(tracker);
-    setEditNotifyPush(tracker.notify_push);
-    setEditNotifyTelegram(tracker.notify_telegram);
-    setEditNotifyEmail(tracker.notify_email);
-    setEditDialogOpen(true);
+  const closeEditDialog = () => {
+    setEditDialogOpen(false);
+    setEditingTracker(null);
+  };
+
+  const openEditDialog = async (tracker: Tracker) => {
+    if (!accountId) {
+      toast({
+        title: "Load tracker failed",
+        description: "Account session is missing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setEditLoadingTrackerId(tracker.tracker_id);
+    try {
+      const response = await fetchTracker(accountId, tracker.tracker_id);
+      const trackerData = response.data;
+
+      setEditingTracker(trackerData);
+      setEditNotifyPush(trackerData.notify_push);
+      setEditNotifyTelegram(trackerData.notify_telegram);
+      setEditNotifyEmail(trackerData.notify_email);
+      setEditDialogOpen(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load tracker.";
+      toast({
+        title: "Load tracker failed",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setEditLoadingTrackerId(null);
+    }
   };
 
   const trackersQuery = useTrackers(accountId);
@@ -178,8 +209,7 @@ const SpyPage = () => {
     },
     onSuccess: async () => {
       await invalidateSpyQueries();
-      setEditDialogOpen(false);
-      setEditingTracker(null);
+      closeEditDialog();
       toast({ title: "Tracker updated", description: "Notification settings saved." });
     },
     onError: (error) => {
@@ -340,7 +370,17 @@ const SpyPage = () => {
               </DialogContent>
             </Dialog>
 
-            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+            <Dialog
+              open={editDialogOpen}
+              onOpenChange={(open) => {
+                if (open) {
+                  setEditDialogOpen(true);
+                  return;
+                }
+
+                closeEditDialog();
+              }}
+            >
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Edit Tracker</DialogTitle>
@@ -387,13 +427,13 @@ const SpyPage = () => {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                  <Button variant="outline" onClick={closeEditDialog}>
                     Cancel
                   </Button>
                   <Button
                     className="gradient-hero"
                     onClick={() => editTrackerMutation.mutate()}
-                    disabled={editTrackerMutation.isPending}
+                    disabled={editTrackerMutation.isPending || !editingTracker}
                   >
                     {editTrackerMutation.isPending ? "Saving..." : "Save Changes"}
                   </Button>
@@ -462,9 +502,12 @@ const SpyPage = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEditDialog(tracker)}>
+                            <DropdownMenuItem
+                              disabled={Boolean(editLoadingTrackerId)}
+                              onClick={() => openEditDialog(tracker)}
+                            >
                               <Edit className="w-4 h-4 mr-2" />
-                              Edit
+                              {editLoadingTrackerId === tracker.tracker_id ? "Loading..." : "Edit"}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               disabled={updateTrackerMutation.isPending}
