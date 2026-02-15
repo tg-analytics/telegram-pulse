@@ -89,6 +89,11 @@ export default function AccountPage() {
 
   const [addApiKeyDialogOpen, setAddApiKeyDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [addChannelDialogOpen, setAddChannelDialogOpen] = useState(false);
+
+  const [newChannelId, setNewChannelId] = useState("");
+  const [newChannelAlias, setNewChannelAlias] = useState("");
+  const [newChannelMonitoring, setNewChannelMonitoring] = useState(true);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -328,6 +333,27 @@ export default function AccountPage() {
       toast({
         title: "Download failed",
         description: getErrorMessage(error, "Could not get invoice download link."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddChannel = async () => {
+    try {
+      await accountChannels.addChannelMutation.mutateAsync({
+        channel_id: newChannelId.trim(),
+        alias_name: newChannelAlias.trim(),
+        monitoring_enabled: newChannelMonitoring,
+      });
+      setNewChannelId("");
+      setNewChannelAlias("");
+      setNewChannelMonitoring(true);
+      setAddChannelDialogOpen(false);
+      toast({ title: "Channel added", description: "Channel has been added to your account." });
+    } catch (error) {
+      toast({
+        title: "Add channel failed",
+        description: getErrorMessage(error, "Could not add channel."),
         variant: "destructive",
       });
     }
@@ -616,11 +642,75 @@ export default function AccountPage() {
 
           <TabsContent value="channels" className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>My Channels</CardTitle>
-                <CardDescription>
-                  Connected channels for this account with verification and monitoring status.
-                </CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>My Channels</CardTitle>
+                  <CardDescription>
+                    Connected channels for this account with verification and monitoring status.
+                  </CardDescription>
+                </div>
+                <Dialog open={addChannelDialogOpen} onOpenChange={setAddChannelDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="gap-2" disabled={accountMissing}>
+                      <Plus className="w-4 h-4" />
+                      Add Channel
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add Channel</DialogTitle>
+                      <DialogDescription>
+                        Connect a new channel to your account.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="newChannelId">Channel ID</Label>
+                        <Input
+                          id="newChannelId"
+                          placeholder="e.g. 9f28253d-8ffd-4d2f-a67c-ebaf0f6ba2f2"
+                          value={newChannelId}
+                          onChange={(e) => setNewChannelId(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="newChannelAlias">Alias Name</Label>
+                        <Input
+                          id="newChannelAlias"
+                          placeholder="e.g. My Tech Channel"
+                          value={newChannelAlias}
+                          onChange={(e) => setNewChannelAlias(e.target.value)}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="newChannelMonitoring">Monitoring Enabled</Label>
+                        <Switch
+                          id="newChannelMonitoring"
+                          checked={newChannelMonitoring}
+                          onCheckedChange={setNewChannelMonitoring}
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setAddChannelDialogOpen(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleAddChannel}
+                        disabled={
+                          !newChannelId.trim() ||
+                          !newChannelAlias.trim() ||
+                          accountChannels.addChannelMutation.isPending
+                        }
+                      >
+                        {accountChannels.addChannelMutation.isPending ? "Adding..." : "Add Channel"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent className="space-y-4">
                 {accountChannels.channelsQuery.isLoading && (
