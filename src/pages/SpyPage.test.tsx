@@ -271,4 +271,27 @@ describe("SpyPage", () => {
     expect(trackersRefetch).toHaveBeenCalled();
     expect(mentionsRefetch).toHaveBeenCalled();
   });
+
+  it("renders skeletons while data is loading", () => {
+    useTrackersMock.mockReturnValueOnce({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    useTrackerMentionsMock.mockReturnValueOnce({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.getByTestId("spy-page-trackers-loading")).toBeInTheDocument();
+    expect(screen.getByTestId("spy-page-mentions-loading")).toBeInTheDocument();
+  });
 });

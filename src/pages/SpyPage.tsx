@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -75,6 +76,43 @@ function sortMentionsDesc(a: TrackerMention, b: TrackerMention) {
 
   return b.mention_seq - a.mention_seq;
 }
+
+const TrackersLoadingSkeleton = () => (
+  <div data-testid="spy-page-trackers-loading" className="divide-y divide-border">
+    {Array.from({ length: 2 }).map((_, index) => (
+      <div key={`tracker-skeleton-${index}`} className="p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-4 w-4 rounded-full" />
+            <Skeleton className="h-5 w-32" />
+          </div>
+          <Skeleton className="h-8 w-8" />
+        </div>
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-28" />
+        </div>
+        <Skeleton className="h-6 w-20 rounded-full" />
+      </div>
+    ))}
+  </div>
+);
+
+const MentionsLoadingSkeleton = () => (
+  <div data-testid="spy-page-mentions-loading" className="divide-y divide-border">
+    {Array.from({ length: 3 }).map((_, index) => (
+      <div key={`mention-skeleton-${index}`} className="p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-20" />
+        </div>
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-4/5" />
+        <Skeleton className="h-8 w-28" />
+      </div>
+    ))}
+  </div>
+);
 
 const SpyPage = () => {
   const { session } = useAuth();
@@ -481,7 +519,7 @@ const SpyPage = () => {
                 <p className="text-sm text-muted-foreground">{activeTrackerCount} active</p>
               </div>
               {trackersQuery.isLoading ? (
-                <div className="p-4 text-sm text-muted-foreground">Loading trackers...</div>
+                <TrackersLoadingSkeleton />
               ) : (
                 <div className="divide-y divide-border">
                   {trackers.map((tracker) => (
@@ -578,7 +616,7 @@ const SpyPage = () => {
                 </div>
               </div>
               {mentionsQuery.isLoading ? (
-                <div className="p-4 text-sm text-muted-foreground">Loading mentions...</div>
+                <MentionsLoadingSkeleton />
               ) : (
                 <div className="divide-y divide-border max-h-[600px] overflow-y-auto">
                   {mentions.map((mention) => (
