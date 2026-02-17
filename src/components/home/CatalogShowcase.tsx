@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useHomeCategories } from "@/hooks/useHomeCategories";
+import { useHomeCountries } from "@/hooks/useHomeCountries";
 import type { HomeCategory } from "@/services/homeApi";
 
 const fallbackCategories: HomeCategory[] = [
@@ -181,7 +182,26 @@ function CategoriesSkeleton() {
   );
 }
 
-const countries = [
+function CountriesSkeleton() {
+  return (
+    <div
+      className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-2"
+      data-testid="home-countries-skeleton"
+    >
+      {Array.from({ length: 16 }).map((_, index) => (
+        <div key={index} className="flex items-center justify-between py-1">
+          <span className="flex items-center gap-2">
+            <Skeleton className="h-4 w-4 rounded-sm" />
+            <Skeleton className="h-4 w-24" />
+          </span>
+          <Skeleton className="h-4 w-12" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const fallbackCountries = [
   { name: "Afghanistan", count: "10", flag: "🇦🇫" },
   { name: "Algeria", count: "8", flag: "🇩🇿" },
   { name: "Argentina", count: "2.0k", flag: "🇦🇷" },
@@ -253,11 +273,30 @@ const countries = [
 ];
 
 export function CatalogShowcase() {
-  const { data, isLoading, isError } = useHomeCategories(50);
-  const categories = data?.data?.length
-    ? data.data
-    : isError
+  const {
+    data: categoriesData,
+    isLoading: isCategoriesLoading,
+    isError: isCategoriesError,
+  } = useHomeCategories(50);
+  const {
+    data: countriesData,
+    isLoading: isCountriesLoading,
+    isError: isCountriesError,
+  } = useHomeCountries(50);
+
+  const categories = categoriesData?.data?.length
+    ? categoriesData.data
+    : isCategoriesError
       ? fallbackCategories
+      : [];
+  const countries = countriesData?.data?.length
+    ? countriesData.data.map((country) => ({
+        name: country.name,
+        count: formatCompactCount(country.channels_count),
+        flag: country.flag_emoji,
+      }))
+    : isCountriesError
+      ? fallbackCountries
       : [];
 
   return (
@@ -274,9 +313,9 @@ export function CatalogShowcase() {
             <LayoutGrid className="w-5 h-5 text-muted-foreground" />
             <h2 className="text-xl font-semibold text-foreground">Categories</h2>
           </div>
-          {isLoading && !data?.data?.length && <CategoriesSkeleton />}
+          {isCategoriesLoading && !categoriesData?.data?.length && <CategoriesSkeleton />}
 
-          {!isLoading && (
+          {!isCategoriesLoading && (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-3">
               {categories.map((category, index) => {
                 const Icon = resolveCategoryIcon(category.icon);
@@ -328,30 +367,33 @@ export function CatalogShowcase() {
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-2">
-            {countries.map((country, index) => (
-              <motion.div
-                key={country.name}
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.005 }}
-              >
-                <Link
-                  to="/catalog"
-                  className="flex items-center justify-between py-1 hover:text-primary transition-colors group"
+          {isCountriesLoading && !countriesData?.data?.length && <CountriesSkeleton />}
+          {!isCountriesLoading && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-2">
+              {countries.map((country, index) => (
+                <motion.div
+                  key={country.name}
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.005 }}
                 >
-                  <span className="flex items-center gap-2 text-sm text-muted-foreground group-hover:text-primary">
-                    <span className="text-base">{country.flag}</span>
-                    {country.name}
-                  </span>
-                  <span className="text-sm font-medium text-foreground">
-                    {country.count}
-                  </span>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
+                  <Link
+                    to="/catalog"
+                    className="flex items-center justify-between py-1 hover:text-primary transition-colors group"
+                  >
+                    <span className="flex items-center gap-2 text-sm text-muted-foreground group-hover:text-primary">
+                      <span className="text-base">{country.flag}</span>
+                      {country.name}
+                    </span>
+                    <span className="text-sm font-medium text-foreground">
+                      {country.count}
+                    </span>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </motion.div>
       </div>
     </section>
