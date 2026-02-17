@@ -14,6 +14,7 @@ import {
   Plane,
   Sparkles,
   Briefcase,
+  BriefcaseBusiness,
   GraduationCap,
   Utensils,
   Laugh,
@@ -28,7 +29,6 @@ import {
   Scale,
   Quote,
   Newspaper,
-  Ban,
   ShoppingBag,
   Send,
   Film,
@@ -40,49 +40,146 @@ import {
   Globe,
   ArrowRight,
   LayoutGrid,
+  Coins,
+  Landmark,
+  type LucideIcon,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useHomeCategories } from "@/hooks/useHomeCategories";
+import type { HomeCategory } from "@/services/homeApi";
 
-const categories = [
-  { name: "Art & Design", count: "62.8k", icon: Palette },
-  { name: "Beauty", count: "65.2k", icon: Sparkles },
-  { name: "Betting and Casino", count: "145.5k", icon: Dice5 },
-  { name: "Blogs", count: "127.5k", icon: FileText },
-  { name: "Books", count: "35.3k", icon: BookOpen },
-  { name: "Business", count: "80.8k", icon: Briefcase },
-  { name: "Career", count: "18.4k", icon: Users },
-  { name: "Cryptocurrencies", count: "58.9k", icon: DollarSign },
-  { name: "Economy & Finance", count: "76.8k", icon: DollarSign },
-  { name: "Education", count: "141.7k", icon: GraduationCap },
-  { name: "Games", count: "93.8k", icon: Gamepad2 },
-  { name: "Facts", count: "8.9k", icon: FileText },
-  { name: "Family & Children", count: "20.0k", icon: Users },
-  { name: "Food & Drinks", count: "27.5k", icon: Utensils },
-  { name: "Healthy Lifestyle", count: "28.4k", icon: Heart },
-  { name: "Home & Architecture", count: "13.9k", icon: Home },
-  { name: "Humor & Entertainment", count: "47.6k", icon: Laugh },
-  { name: "Law", count: "8.1k", icon: Scale },
-  { name: "Linguistics", count: "7.4k", icon: BookOpen },
-  { name: "Marketing & PR", count: "11.2k", icon: Megaphone },
-  { name: "Medicine", count: "29.4k", icon: Stethoscope },
-  { name: "Motivation & Quotes", count: "29.3k", icon: Quote },
-  { name: "Movies", count: "124.6k", icon: Film },
-  { name: "Music", count: "85.6k", icon: Music },
-  { name: "Nature & Animals", count: "21.0k", icon: Leaf },
-  { name: "News & Media", count: "72.5k", icon: Newspaper },
-  { name: "Other", count: "31", icon: Box },
-  { name: "Pictures", count: "10.8k", icon: Image },
-  { name: "Politics", count: "36.1k", icon: Vote },
-  { name: "Psychology", count: "35.2k", icon: Brain },
-  { name: "Real Estate", count: "20.2k", icon: Building },
-  { name: "Religion & Spirituality", count: "138.0k", icon: Church },
-  { name: "Sales", count: "53.6k", icon: ShoppingBag },
-  { name: "Social Networks", count: "16.1k", icon: Share2 },
-  { name: "Sports", count: "42.9k", icon: Trophy },
-  { name: "Technologies", count: "63.7k", icon: Cpu },
-  { name: "Telegram", count: "2.8k", icon: Send },
-  { name: "Transport", count: "28.7k", icon: Bus },
-  { name: "Travel", count: "24.1k", icon: Plane },
+const fallbackCategories: HomeCategory[] = [
+  { slug: "art-design", name: "Art & Design", icon: "palette", channels_count: 62800 },
+  { slug: "beauty", name: "Beauty", icon: "sparkles", channels_count: 65200 },
+  { slug: "betting-casino", name: "Betting and Casino", icon: "dice-5", channels_count: 145500 },
+  { slug: "blogs", name: "Blogs", icon: "file-text", channels_count: 127500 },
+  { slug: "books", name: "Books", icon: "book-open", channels_count: 35300 },
+  { slug: "business", name: "Business", icon: "briefcase-business", channels_count: 80800 },
+  { slug: "career", name: "Career", icon: "users", channels_count: 18400 },
+  { slug: "cryptocurrencies", name: "Cryptocurrencies", icon: "coins", channels_count: 58900 },
+  { slug: "economy-and-finance", name: "Economy & Finance", icon: "landmark", channels_count: 76800 },
+  { slug: "education", name: "Education", icon: "graduation-cap", channels_count: 141700 },
+  { slug: "games", name: "Games", icon: "gamepad-2", channels_count: 93800 },
+  { slug: "facts", name: "Facts", icon: "file-text", channels_count: 8900 },
+  { slug: "family-and-children", name: "Family & Children", icon: "users", channels_count: 20000 },
+  { slug: "food-and-drinks", name: "Food & Drinks", icon: "utensils", channels_count: 27500 },
+  { slug: "healthy-lifestyle", name: "Healthy Lifestyle", icon: "heart", channels_count: 28400 },
+  { slug: "home-and-architecture", name: "Home & Architecture", icon: "home", channels_count: 13900 },
+  { slug: "humor-and-entertainment", name: "Humor & Entertainment", icon: "laugh", channels_count: 47600 },
+  { slug: "law", name: "Law", icon: "scale", channels_count: 8100 },
+  { slug: "linguistics", name: "Linguistics", icon: "book-open", channels_count: 7400 },
+  { slug: "marketing-and-pr", name: "Marketing & PR", icon: "megaphone", channels_count: 11200 },
+  { slug: "medicine", name: "Medicine", icon: "stethoscope", channels_count: 29400 },
+  { slug: "motivation-and-quotes", name: "Motivation & Quotes", icon: "quote", channels_count: 29300 },
+  { slug: "movies", name: "Movies", icon: "film", channels_count: 124600 },
+  { slug: "music", name: "Music", icon: "music", channels_count: 85600 },
+  { slug: "nature-and-animals", name: "Nature & Animals", icon: "leaf", channels_count: 21000 },
+  { slug: "news-and-media", name: "News & Media", icon: "newspaper", channels_count: 72500 },
+  { slug: "other", name: "Other", icon: "box", channels_count: 31 },
+  { slug: "pictures", name: "Pictures", icon: "image", channels_count: 10800 },
+  { slug: "politics", name: "Politics", icon: "vote", channels_count: 36100 },
+  { slug: "psychology", name: "Psychology", icon: "brain", channels_count: 35200 },
+  { slug: "real-estate", name: "Real Estate", icon: "building", channels_count: 20200 },
+  { slug: "religion-and-spirituality", name: "Religion & Spirituality", icon: "church", channels_count: 138000 },
+  { slug: "sales", name: "Sales", icon: "shopping-bag", channels_count: 53600 },
+  { slug: "social-networks", name: "Social Networks", icon: "share-2", channels_count: 16100 },
+  { slug: "sports", name: "Sports", icon: "trophy", channels_count: 42900 },
+  { slug: "technologies", name: "Technologies", icon: "cpu", channels_count: 63700 },
+  { slug: "telegram", name: "Telegram", icon: "send", channels_count: 2800 },
+  { slug: "transport", name: "Transport", icon: "bus", channels_count: 28700 },
+  { slug: "travel", name: "Travel", icon: "plane", channels_count: 24100 },
 ];
+
+const iconsByName: Record<string, LucideIcon> = {
+  Palette,
+  Sparkles,
+  Dice5,
+  FileText,
+  BookOpen,
+  Briefcase,
+  BriefcaseBusiness,
+  Users,
+  DollarSign,
+  Coins,
+  Landmark,
+  GraduationCap,
+  Gamepad2,
+  Utensils,
+  Heart,
+  Home,
+  Laugh,
+  Scale,
+  Megaphone,
+  Stethoscope,
+  Quote,
+  Film,
+  Music,
+  Leaf,
+  Newspaper,
+  Box,
+  Image,
+  Vote,
+  Brain,
+  Building,
+  Church,
+  ShoppingBag,
+  Share2,
+  Trophy,
+  Cpu,
+  Send,
+  Bus,
+  Plane,
+};
+
+function toPascalCase(value: string) {
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
+}
+
+function resolveCategoryIcon(icon: string): LucideIcon {
+  const iconName = toPascalCase(icon);
+  return iconsByName[iconName] ?? LayoutGrid;
+}
+
+function formatCompactCount(value: number) {
+  const abs = Math.abs(value);
+
+  if (abs >= 1_000_000_000) {
+    return `${(value / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}b`;
+  }
+
+  if (abs >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}m`;
+  }
+
+  if (abs >= 1_000) {
+    return `${(value / 1_000).toFixed(1).replace(/\.0$/, "")}k`;
+  }
+
+  return String(value);
+}
+
+function CategoriesSkeleton() {
+  return (
+    <div
+      className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-3"
+      data-testid="home-categories-skeleton"
+    >
+      {Array.from({ length: 16 }).map((_, index) => (
+        <div key={index} className="flex items-center justify-between py-1">
+          <span className="flex items-center gap-2">
+            <Skeleton className="w-4 h-4 rounded-sm" />
+            <Skeleton className="h-4 w-28" />
+          </span>
+          <Skeleton className="h-4 w-12" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const countries = [
   { name: "Afghanistan", count: "10", flag: "🇦🇫" },
@@ -156,6 +253,13 @@ const countries = [
 ];
 
 export function CatalogShowcase() {
+  const { data, isLoading, isError } = useHomeCategories(50);
+  const categories = data?.data?.length
+    ? data.data
+    : isError
+      ? fallbackCategories
+      : [];
+
   return (
     <section className="py-16 bg-background">
       <div className="container space-y-12">
@@ -170,33 +274,37 @@ export function CatalogShowcase() {
             <LayoutGrid className="w-5 h-5 text-muted-foreground" />
             <h2 className="text-xl font-semibold text-foreground">Categories</h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-3">
-            {categories.map((category, index) => {
-              const Icon = category.icon;
-              return (
-                <motion.div
-                  key={category.name}
-                  initial={{ opacity: 0 }}
-                  whileInView={{ opacity: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.01 }}
-                >
-                  <Link
-                    to="/catalog"
-                    className="flex items-center justify-between py-1 hover:text-primary transition-colors group"
+          {isLoading && !data?.data?.length && <CategoriesSkeleton />}
+
+          {!isLoading && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-3">
+              {categories.map((category, index) => {
+                const Icon = resolveCategoryIcon(category.icon);
+                return (
+                  <motion.div
+                    key={category.slug}
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.01 }}
                   >
-                    <span className="flex items-center gap-2 text-sm text-muted-foreground group-hover:text-primary">
-                      <Icon className="w-4 h-4" />
-                      {category.name}
-                    </span>
-                    <span className="text-sm font-medium text-foreground">
-                      {category.count}
-                    </span>
-                  </Link>
-                </motion.div>
-              );
-            })}
-          </div>
+                    <Link
+                      to="/catalog"
+                      className="flex items-center justify-between py-1 hover:text-primary transition-colors group"
+                    >
+                      <span className="flex items-center gap-2 text-sm text-muted-foreground group-hover:text-primary">
+                        <Icon className="w-4 h-4" />
+                        {category.name}
+                      </span>
+                      <span className="text-sm font-medium text-foreground">
+                        {formatCompactCount(category.channels_count)}
+                      </span>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
         </motion.div>
 
         {/* Countries Section */}
