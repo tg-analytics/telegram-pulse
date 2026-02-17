@@ -54,7 +54,7 @@ describe("LoginDialog", () => {
     });
     renderButtonMock = vi.fn();
 
-    (window as Window & { google: unknown }).google = {
+    (window as unknown as Window & { google: unknown }).google = {
       accounts: {
         id: {
           initialize: initializeMock,

@@ -3,7 +3,7 @@ const GOOGLE_IDENTITY_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
 let googleScriptPromise: Promise<void> | null = null;
 
 function hasGoogleIdentityApi() {
-  return typeof window !== "undefined" && !!window.google?.accounts?.id;
+  return typeof window !== "undefined" && !!(window as any).google?.accounts?.id;
 }
 
 export function loadGoogleIdentityScript(): Promise<void> {

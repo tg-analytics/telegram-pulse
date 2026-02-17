@@ -313,7 +313,7 @@ export function CatalogShowcase() {
             <LayoutGrid className="w-5 h-5 text-muted-foreground" />
             <h2 className="text-xl font-semibold text-foreground">Categories</h2>
           </div>
-          {isCategoriesLoading && !categoriesData?.data?.length && <CategoriesSkeleton />}
+          {isCategoriesLoading && !((categoriesData as any)?.data?.length) && <CategoriesSkeleton />}
 
           {!isCategoriesLoading && (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-3">
@@ -367,7 +367,7 @@ export function CatalogShowcase() {
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
-          {isCountriesLoading && !countriesData?.data?.length && <CountriesSkeleton />}
+          {isCountriesLoading && !((countriesData as any)?.data?.length) && <CountriesSkeleton />}
           {!isCountriesLoading && (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-2">
               {countries.map((country, index) => (

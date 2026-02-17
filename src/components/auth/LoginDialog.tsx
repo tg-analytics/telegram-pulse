@@ -56,11 +56,11 @@ export function LoginDialog() {
           return;
         }
 
-        if (!window.google?.accounts?.id || !googleButtonContainerRef.current) {
+        if (!(window as any).google?.accounts?.id || !googleButtonContainerRef.current) {
           throw new Error("Google Identity Services is not available right now.");
         }
 
-        window.google.accounts.id.initialize({
+        (window as any).google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           ux_mode: "popup",
           auto_select: false,
@@ -113,7 +113,7 @@ export function LoginDialog() {
 
         googleButtonContainerRef.current.innerHTML = "";
         const buttonWidth = Math.min(360, Math.max(240, googleButtonContainerRef.current.clientWidth));
-        window.google.accounts.id.renderButton(googleButtonContainerRef.current, {
+        (window as any).google.accounts.id.renderButton(googleButtonContainerRef.current, {
           theme: "outline",
           size: "large",
           text: "continue_with",

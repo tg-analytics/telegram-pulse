@@ -36,5 +36,3 @@ interface GoogleIdentityApi {
 interface Window {
   google?: GoogleIdentityApi;
 }
-
-export {};
